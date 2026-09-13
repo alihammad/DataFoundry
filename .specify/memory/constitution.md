@@ -24,7 +24,8 @@ meaningful value.
   teams from using cloud-native capabilities.
 - Business logic, metadata, ingestion definitions, and logical datasets MUST remain
   portable across AWS and GCP.
-- Each new cloud target MUST be introducible without a fundamental platform redesign.
+- Adding a supported cloud provider MUST NOT require modification of core business logic, 
+  logical data models, platform APIs, or existing provider implementations.
 
 Rationale: Portability is a stated product requirement; sacrificing cloud capability to
 achieve naive symmetry is explicitly forbidden by the business requirements.
@@ -37,25 +38,27 @@ monitoring, secrets, and API infrastructure — MUST be reproducible from code.
 
 - Cloud implementations MUST be isolated under `terraform/aws/` and `terraform/gcp/`.
 - Logical configuration MUST remain cloud-independent; cloud-specific details MUST be
-  encapsulated behind a single platform abstraction.
+  encapsulated behind a capability specific abstraction.
 - Infrastructure MUST be reproducible from code such that recreation from versioned
   sources is always possible (disaster recovery requirement).
+- Terraform is the authoritative mechanism for provisioning DataFoundry infrastructure.
 
 Rationale: One-click deployment, GitOps, and disaster recovery all depend on a single
 authoritative, versioned IaC source of truth.
 
 ### III. Medallion Architecture with Quality-Gated Promotion
 
-All data MUST flow through the Medallion Architecture: Bronze (raw/immutable) →
-Silver (cleaned/conformed) → Gold (business-ready). No data MAY be promoted to the next
-layer unless it passes the quality, schema, security, and contractual requirements
+All analytical data MUST follow the Medallion Architecture unless an explicitly approved 
+exception applies. Exceptions still require governance, security,validation,observability
+lineage. Bronze (raw/immutable) → Silver (cleaned/conformed) → Gold (business-ready).
+No data MAY be promoted to the next layer unless it passes the quality, schema, security, and contractual requirements
 defined for that layer.
 
 - Invalid, incomplete, corrupted, or structurally incompatible data MUST be
   quarantined, never silently propagated.
 - Quality gates MUST exist and be enforced at every layer transition.
-- Promotion MUST follow explicit states: INGESTED → VALIDATED → BRONZE → SILVER
-  VALIDATED → SILVER → GOLD VALIDATED → GOLD → CONSUMABLE.
+- Promotion MUST follow explicit states: INGESTED → INGESTION_VALIDATED → BRONZE → BRONZE_VALIDATED 
+  → SILVER → SILVER_VALIDATED → GOLD → GOLD_VALIDATED → CONSUMABLE
 - Any override of a failed gate MUST require authorisation, reason, expiry, user
   identity, timestamp, and impact assessment.
 
@@ -67,15 +70,18 @@ success metric.
 
 Testing MUST be a pipeline control mechanism applied as early as possible, not an
 afterthought following consumer-facing failure. Data contracts MUST define the
-agreement between producers and consumers and be validated during ingestion.
+agreement between producers and consumers and be validated during ingestion. Where an explicit 
+producer contract does not exist, DataFoundry MUST generate or infer a source 
+contract from observed schema and metadata, subject to valid  ation and approval policies.
 
 - Tests MUST begin before or during ingestion (file, schema, and security validation).
 - Contract violations MUST be classified as breaking, non-breaking, or warning, and
   breaking changes MUST block promotion.
 - Tests MUST support severity levels (CRITICAL, ERROR, WARNING, INFORMATIONAL),
   configurable per dataset and environment.
-- Test-first development is the preferred workflow: define contract → define tests →
-  develop transformation → run tests → deploy.
+- Test-first development SHOULD be the default workflow for new pipeline and transformation 
+  functionality: define contract → define tests → develop transformation → run tests → deploy.
+  Production-critical quality rules MUST have automated executable tests.
 
 Rationale: Early detection and prevention are favoured over downstream remediation;
 failed data must never knowingly reach consumers.
@@ -85,12 +91,10 @@ failed data must never knowingly reach consumers.
 AI MUST be a platform capability — not a bolt-on chatbot — and AI agents MUST NOT have
 unrestricted production access by default.
 
-- Low-risk actions (documentation, metadata enrichment, query suggestions) MAY execute
-  automatically.
-- Medium-risk actions (pipeline configuration, quality rule, and schema changes) MUST
-  require approval.
-- High-risk actions (production infrastructure changes, data deletion, access or
-  security-policy changes) MUST require explicit human approval.
+- AI-generated decisions, configurations and code MUST pass deterministic validation and 
+  applicable policy controls before execution. AI Agent →  Recommendation / Intent 
+  →  Policy Engine →  Validation →  Authorization →  Deterministic Execution 
+  rather than: AI Agent →  Execute
 - Agents MUST NEVER bypass encryption or security policies, retrieve keys, decrypt,
   detokenise, or export protected data unless explicitly authorised.
 
