@@ -17,10 +17,8 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
 import yaml
-
 from datafoundry.controlplane.capabilities.registry import default_registry
 from datafoundry.controlplane.config.schema import PlatformConfig
 from datafoundry.controlplane.db.models import (
@@ -148,9 +146,7 @@ class HealthService:
         elif overall is HealthStatus.unhealthy and platform.status is not PlatformStatus.degraded:
             platform.status = transition_platform(platform.status, PlatformStatus.degraded)
         self.session.flush()
-        return HealthCheckOutcomeSet(
-            check_id=check_id, latest_by_component=latest, overall=overall
-        )
+        return HealthCheckOutcomeSet(check_id=check_id, latest_by_component=latest, overall=overall)
 
     def _load_raw_config(self, platform: Platform) -> dict:
         version = platform.current_config_version_id
