@@ -248,18 +248,21 @@ def upgrade() -> None:
     # Append-only audit: revoke UPDATE/DELETE from the application role
     # (data-model.md AuditRecord retention). Role may not exist in every
     # environment (e.g. sqlite-based tests) — guard with a DO block.
-    # APP_ROLE is a module constant (not user input) - no injection vector.
-    revoke_sql = f"""
-        DO $$
-        BEGIN
-            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{APP_ROLE}') THEN
-                REVOKE UPDATE, DELETE ON audit_records FROM {APP_ROLE};
-                GRANT SELECT, INSERT ON audit_records TO {APP_ROLE};
-            END IF;
-        END
-        $$;
-    """  # noqa: S608
-    op.execute(sa.text(revoke_sql))
+    # APP_ROLE is a module constant, not user input — no injection vector.
+    op.execute(
+        sa.text(
+            f"""
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{APP_ROLE}') THEN
+                    REVOKE UPDATE, DELETE ON audit_records FROM {APP_ROLE};
+                    GRANT SELECT, INSERT ON audit_records TO {APP_ROLE};
+                END IF;
+            END
+            $$;
+            """
+        )
+    )
 
 
 def downgrade() -> None:

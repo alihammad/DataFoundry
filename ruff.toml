@@ -30,10 +30,18 @@ ignore = [
 [lint.per-file-ignores]
 "control-plane/tests/**" = ["S"]
 "cli/tests/**" = ["S"]
+# Alembic migrations execute trusted DDL strings (role grants etc.).
+"control-plane/src/datafoundry/controlplane/db/migrations/**" = ["S608"]
 
 [lint.flake8-bugbear]
 # FastAPI dependency injection idiom.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Body"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Header",
+    "fastapi.Body",
+    "datafoundry.controlplane.api.auth.require_action",
+]
 
 [format]
 quote-style = "double"

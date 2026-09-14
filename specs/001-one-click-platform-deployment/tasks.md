@@ -69,51 +69,51 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T024 [P] [US1] Contract tests for `POST /api/v1/platforms` (202 shape, 422 all-errors body with `{path,code,message,remediation}`, 409 name_taken, 403 insufficient_permissions, Idempotency-Key replay) and `POST /api/v1/validate` per contracts/deployment-api.md §1/§3 — in `control-plane/tests/contract/test_platform_deploy_api.py`
-- [ ] T025 [P] [US1] Contract tests for `GET /api/v1/runs/{run_id}` (ordered steps, per-step status incl. `skipped` with detail, failed step `error_detail`/`attempt`), `POST /runs/{run_id}/retry` (202/409), `POST /runs/{run_id}/rollback` (202/409) per contracts/deployment-api.md §2 — in `control-plane/tests/contract/test_runs_api.py`
-- [ ] T026 [P] [US1] Integration test for quickstart Scenarios 1+2: bad-config rejected with all three errors and zero resources created; LocalStack deploy reaches `succeeded`, platform `ready`, zone prefixes exist, catalog lists zones, disabled capabilities recorded `skipped` — in `control-plane/tests/integration/test_deploy_flow.py`
-- [ ] T027 [P] [US1] Integration test for quickstart Scenario 3: fault-injected failure at `orchestration` step, earlier steps `succeeded`/later `pending`, partial state inspectable, retry resumes from failed step with attempt increment, rollback destroys only this run's workspace leaving zero orphans — in `control-plane/tests/integration/test_failure_handling.py`
+- [X] T024 [P] [US1] Contract tests for `POST /api/v1/platforms` (202 shape, 422 all-errors body with `{path,code,message,remediation}`, 409 name_taken, 403 insufficient_permissions, Idempotency-Key replay) and `POST /api/v1/validate` per contracts/deployment-api.md §1/§3 — in `control-plane/tests/contract/test_platform_deploy_api.py`
+- [X] T025 [P] [US1] Contract tests for `GET /api/v1/runs/{run_id}` (ordered steps, per-step status incl. `skipped` with detail, failed step `error_detail`/`attempt`), `POST /runs/{run_id}/retry` (202/409), `POST /runs/{run_id}/rollback` (202/409) per contracts/deployment-api.md §2 — in `control-plane/tests/contract/test_runs_api.py`
+- [X] T026 [P] [US1] Integration test for quickstart Scenarios 1+2: bad-config rejected with all three errors and zero resources created; LocalStack deploy reaches `succeeded`, platform `ready`, zone prefixes exist, catalog lists zones, disabled capabilities recorded `skipped` — in `control-plane/tests/integration/test_deploy_flow.py`
+- [X] T027 [P] [US1] Integration test for quickstart Scenario 3: fault-injected failure at `orchestration` step, earlier steps `succeeded`/later `pending`, partial state inspectable, retry resumes from failed step with attempt increment, rollback destroys only this run's workspace leaving zero orphans — in `control-plane/tests/integration/test_failure_handling.py`
 
 ### Implementation for User Story 1
 
-- [ ] T028 [US1] Implement two-stage validation engine (collect-all, never fail-fast): schema/semantic rules 1–8 from contracts/platform-config-schema.md (naming regex + reserved names, region-capability matrix, transitive dependency closure, production controls, secret scan, uniqueness pre-check incl. live cloud scope per R-12) plus stage-2 `terraform validate`/`plan` error translation (R-07) — in `control-plane/src/datafoundry/controlplane/config/validation.py`
-- [ ] T029 [US1] Implement permission pre-check (FR-018 fail-fast): STS `GetCallerIdentity` + required-permission probes on AWS, token introspection on GCP; produce precise missing-permission list for 403 responses — in `control-plane/src/datafoundry/controlplane/providers/permissions.py`
-- [ ] T030 [US1] Implement deployment orchestrator: canonical 15-step sequence per R-11 (with `approval-gate` inserted before step 5 for production, FR-010), DeploymentStep persistence with per-step status/timestamps/error_detail, `skipped` for disabled capabilities, platform status transitions, `SELECT ... FOR UPDATE` advisory lock enforcing one active run per platform (R-12) — in `control-plane/src/datafoundry/controlplane/engine/orchestrator.py`
-- [ ] T031 [US1] Implement retry-from-failed-step and scoped rollback (R-06, FR-009): retry re-applies the failed step's module in the same per-run workspace and continues; rollback runs `terraform destroy` in reverse step order scoped to the run's workspace only; credential-expiry → `paused`, resumable, never auto-destroys — in `control-plane/src/datafoundry/controlplane/engine/recovery.py`
-- [ ] T032 [US1] Implement async deployment worker supervising Terraform subprocess runs, streaming `-json` progress into DeploymentStep updates, checkpointing to PostgreSQL (R-01) — in `control-plane/src/datafoundry/controlplane/engine/worker.py`
-- [ ] T033 [US1] Implement health check framework and MVP runners registered per capability (R-08): dns-resolve, kms-decrypt-probe, zone-head (bronze/silver/gold), token-mint, instance-ready, pg-ping, http /health (OpenMetadata), airflow /health, endpoint-responds, synthetic-datapoint; write HealthCheckResult rows; platform `ready` only when all enabled capabilities healthy (FR-007) — in `control-plane/src/datafoundry/controlplane/health/runners.py` and `health/framework.py`
-- [ ] T034 [US1] Implement storage-zone + catalog initialisation job (FR-005): create Bronze/Silver/Gold prefixes, register zones and capability inventory in OpenMetadata before readiness — in `control-plane/src/datafoundry/controlplane/engine/init_jobs.py`
-- [ ] T035 [US1] Implement API router `POST /api/v1/platforms` (the "one click": validate → register Platform + PlatformConfigVersion → queue run → 202; 422/409/403 paths; Idempotency-Key; audit write) and `GET /api/v1/platforms` (cursor pagination, PlatformSummary) — in `control-plane/src/datafoundry/controlplane/api/platforms.py`
-- [ ] T036 [US1] Implement API router `GET /api/v1/runs/{run_id}`, `POST /api/v1/runs/{run_id}/retry`, `POST /api/v1/runs/{run_id}/rollback` per contracts/deployment-api.md §2 — in `control-plane/src/datafoundry/controlplane/api/runs.py`
-- [ ] T037 [US1] Implement API router `POST /api/v1/validate` (no side effects, same all-errors 422 body) — in `control-plane/src/datafoundry/controlplane/api/validate.py`
-- [ ] T038 [P] [US1] Create cloud-neutral shared Terraform glue: common variable schema file, tags/labels convention, shared init scripts per capability contract common inputs/outputs — in `terraform/modules/`
-- [ ] T039 [P] [US1] AWS `networking` module (VPC, private isolation, CIDR, TLS-enforcing endpoints; common inputs/outputs contract) — in `terraform/aws/networking/`
-- [ ] T040 [P] [US1] AWS `secrets` module (KMS CMK, Secrets Manager entries, encryption from creation, FR-017) — in `terraform/aws/secrets/`
-- [ ] T041 [P] [US1] AWS `storage` module (S3 bucket, Bronze/Silver/Gold prefixes, versioned S3+DynamoDB Terraform state backend per R-05, KMS encryption, Bronze immutability) — in `terraform/aws/storage/`
-- [ ] T042 [P] [US1] AWS `iam` module (least-privilege roles/policies per capability, service identities) — in `terraform/aws/iam/`
-- [ ] T043 [P] [US1] AWS `compute` module (size small/medium/large per config) — in `terraform/aws/compute/`
-- [ ] T044 [P] [US1] AWS `database` module (RDS PostgreSQL 15, KMS-encrypted, pg-ping health target) — in `terraform/aws/database/`
-- [ ] T045 [P] [US1] AWS `catalog` module (OpenMetadata containerised deployment backed by platform database, http /health target, R-04) — in `terraform/aws/catalog/`
-- [ ] T046 [P] [US1] AWS `orchestration` module (MWAA managed Airflow behind the logical contract, R-03) — in `terraform/aws/orchestration/`
-- [ ] T047 [P] [US1] AWS `ingestion` module (ingestion service runtime, endpoint-responds health target) — in `terraform/aws/ingestion/`
-- [ ] T048 [P] [US1] AWS `monitoring` module (OTel collector, dashboards, alerts, synthetic-datapoint health target) — in `terraform/aws/monitoring/`
-- [ ] T049 [P] [US1] AWS placeholder modules `quality` and `semantic` implementing the common contract with runner-heartbeat/endpoint-responds targets (full behaviour delivered by features 004/006) — in `terraform/aws/quality/` and `terraform/aws/semantic/`
-- [ ] T050 [P] [US1] GCP `networking` module (VPC, private isolation, CIDR; mirrors AWS contract) — in `terraform/gcp/networking/`
-- [ ] T051 [P] [US1] GCP `secrets` module (Cloud KMS key, Secret Manager entries) — in `terraform/gcp/secrets/`
-- [ ] T052 [P] [US1] GCP `storage` module (GCS bucket, zone prefixes, GCS native-locking state backend per R-05, CMEK encryption, Bronze immutability) — in `terraform/gcp/storage/`
-- [ ] T053 [P] [US1] GCP `iam` module (least-privilege roles/service accounts) — in `terraform/gcp/iam/`
-- [ ] T054 [P] [US1] GCP `compute` module — in `terraform/gcp/compute/`
-- [ ] T055 [P] [US1] GCP `database` module (Cloud SQL PostgreSQL 15, CMEK-encrypted) — in `terraform/gcp/database/`
-- [ ] T056 [P] [US1] GCP `catalog` module (OpenMetadata, identical logical contract to AWS) — in `terraform/gcp/catalog/`
-- [ ] T057 [P] [US1] GCP `orchestration` module (Cloud Composer managed Airflow, R-03) — in `terraform/gcp/orchestration/`
-- [ ] T058 [P] [US1] GCP `ingestion` module — in `terraform/gcp/ingestion/`
-- [ ] T059 [P] [US1] GCP `monitoring` module (OTel collector + Cloud Monitoring dashboards/alerts) — in `terraform/gcp/monitoring/`
-- [ ] T060 [P] [US1] GCP placeholder modules `quality` and `semantic` — in `terraform/gcp/quality/` and `terraform/gcp/semantic/`
-- [ ] T061 [US1] Generate the region-capability matrix from actual module availability per provider (contract rule: generated, not hand-maintained) and expose it to validation and adapters — in `control-plane/src/datafoundry/controlplane/providers/region_matrix.py`
-- [ ] T062 [US1] CLI skeleton (typer app, API client, auth token handling) and `datafoundry validate --config` command (exit 1 with all errors + remediation) — in `cli/src/datafoundry/cli/main.py` and `cli/src/datafoundry/cli/commands/validate.py`
-- [ ] T063 [US1] CLI `datafoundry deploy --config [--wait]` command: POST /platforms, stream ordered step progress from GET /runs/{run_id}, surface failures with error_detail — in `cli/src/datafoundry/cli/commands/deploy.py`
-- [ ] T064 [US1] CLI `datafoundry status --platform` command (run progress, step list, failure reasons) — in `cli/src/datafoundry/cli/commands/status.py`
-- [ ] T065 [US1] End-to-end integration pass on LocalStack: run Scenarios 1–3, fix step-ordering/timing issues, confirm run wall time recorded and disabled capabilities skipped, confirm audit records written for deploy/retry/rollback
+- [X] T028 [US1] Implement two-stage validation engine (collect-all, never fail-fast): schema/semantic rules 1–8 from contracts/platform-config-schema.md (naming regex + reserved names, region-capability matrix, transitive dependency closure, production controls, secret scan, uniqueness pre-check incl. live cloud scope per R-12) plus stage-2 `terraform validate`/`plan` error translation (R-07) — in `control-plane/src/datafoundry/controlplane/config/validation.py`
+- [X] T029 [US1] Implement permission pre-check (FR-018 fail-fast): STS `GetCallerIdentity` + required-permission probes on AWS, token introspection on GCP; produce precise missing-permission list for 403 responses — in `control-plane/src/datafoundry/controlplane/providers/permissions.py`
+- [X] T030 [US1] Implement deployment orchestrator: canonical 15-step sequence per R-11 (with `approval-gate` inserted before step 5 for production, FR-010), DeploymentStep persistence with per-step status/timestamps/error_detail, `skipped` for disabled capabilities, platform status transitions, `SELECT ... FOR UPDATE` advisory lock enforcing one active run per platform (R-12) — in `control-plane/src/datafoundry/controlplane/engine/orchestrator.py`
+- [X] T031 [US1] Implement retry-from-failed-step and scoped rollback (R-06, FR-009): retry re-applies the failed step's module in the same per-run workspace and continues; rollback runs `terraform destroy` in reverse step order scoped to the run's workspace only; credential-expiry → `paused`, resumable, never auto-destroys — in `control-plane/src/datafoundry/controlplane/engine/recovery.py`
+- [X] T032 [US1] Implement async deployment worker supervising Terraform subprocess runs, streaming `-json` progress into DeploymentStep updates, checkpointing to PostgreSQL (R-01) — in `control-plane/src/datafoundry/controlplane/engine/worker.py`
+- [X] T033 [US1] Implement health check framework and MVP runners registered per capability (R-08): dns-resolve, kms-decrypt-probe, zone-head (bronze/silver/gold), token-mint, instance-ready, pg-ping, http /health (OpenMetadata), airflow /health, endpoint-responds, synthetic-datapoint; write HealthCheckResult rows; platform `ready` only when all enabled capabilities healthy (FR-007) — in `control-plane/src/datafoundry/controlplane/health/runners.py` and `health/framework.py`
+- [X] T034 [US1] Implement storage-zone + catalog initialisation job (FR-005): create Bronze/Silver/Gold prefixes, register zones and capability inventory in OpenMetadata before readiness — in `control-plane/src/datafoundry/controlplane/engine/init_jobs.py`
+- [X] T035 [US1] Implement API router `POST /api/v1/platforms` (the "one click": validate → register Platform + PlatformConfigVersion → queue run → 202; 422/409/403 paths; Idempotency-Key; audit write) and `GET /api/v1/platforms` (cursor pagination, PlatformSummary) — in `control-plane/src/datafoundry/controlplane/api/platforms.py`
+- [X] T036 [US1] Implement API router `GET /api/v1/runs/{run_id}`, `POST /api/v1/runs/{run_id}/retry`, `POST /api/v1/runs/{run_id}/rollback` per contracts/deployment-api.md §2 — in `control-plane/src/datafoundry/controlplane/api/runs.py`
+- [X] T037 [US1] Implement API router `POST /api/v1/validate` (no side effects, same all-errors 422 body) — in `control-plane/src/datafoundry/controlplane/api/validate.py`
+- [X] T038 [P] [US1] Create cloud-neutral shared Terraform glue: common variable schema file, tags/labels convention, shared init scripts per capability contract common inputs/outputs — in `terraform/modules/`
+- [X] T039 [P] [US1] AWS `networking` module (VPC, private isolation, CIDR, TLS-enforcing endpoints; common inputs/outputs contract) — in `terraform/aws/networking/`
+- [X] T040 [P] [US1] AWS `secrets` module (KMS CMK, Secrets Manager entries, encryption from creation, FR-017) — in `terraform/aws/secrets/`
+- [X] T041 [P] [US1] AWS `storage` module (S3 bucket, Bronze/Silver/Gold prefixes, versioned S3+DynamoDB Terraform state backend per R-05, KMS encryption, Bronze immutability) — in `terraform/aws/storage/`
+- [X] T042 [P] [US1] AWS `iam` module (least-privilege roles/policies per capability, service identities) — in `terraform/aws/iam/`
+- [X] T043 [P] [US1] AWS `compute` module (size small/medium/large per config) — in `terraform/aws/compute/`
+- [X] T044 [P] [US1] AWS `database` module (RDS PostgreSQL 15, KMS-encrypted, pg-ping health target) — in `terraform/aws/database/`
+- [X] T045 [P] [US1] AWS `catalog` module (OpenMetadata containerised deployment backed by platform database, http /health target, R-04) — in `terraform/aws/catalog/`
+- [X] T046 [P] [US1] AWS `orchestration` module (MWAA managed Airflow behind the logical contract, R-03) — in `terraform/aws/orchestration/`
+- [X] T047 [P] [US1] AWS `ingestion` module (ingestion service runtime, endpoint-responds health target) — in `terraform/aws/ingestion/`
+- [X] T048 [P] [US1] AWS `monitoring` module (OTel collector, dashboards, alerts, synthetic-datapoint health target) — in `terraform/aws/monitoring/`
+- [X] T049 [P] [US1] AWS placeholder modules `quality` and `semantic` implementing the common contract with runner-heartbeat/endpoint-responds targets (full behaviour delivered by features 004/006) — in `terraform/aws/quality/` and `terraform/aws/semantic/`
+- [X] T050 [P] [US1] GCP `networking` module (VPC, private isolation, CIDR; mirrors AWS contract) — in `terraform/gcp/networking/`
+- [X] T051 [P] [US1] GCP `secrets` module (Cloud KMS key, Secret Manager entries) — in `terraform/gcp/secrets/`
+- [X] T052 [P] [US1] GCP `storage` module (GCS bucket, zone prefixes, GCS native-locking state backend per R-05, CMEK encryption, Bronze immutability) — in `terraform/gcp/storage/`
+- [X] T053 [P] [US1] GCP `iam` module (least-privilege roles/service accounts) — in `terraform/gcp/iam/`
+- [X] T054 [P] [US1] GCP `compute` module — in `terraform/gcp/compute/`
+- [X] T055 [P] [US1] GCP `database` module (Cloud SQL PostgreSQL 15, CMEK-encrypted) — in `terraform/gcp/database/`
+- [X] T056 [P] [US1] GCP `catalog` module (OpenMetadata, identical logical contract to AWS) — in `terraform/gcp/catalog/`
+- [X] T057 [P] [US1] GCP `orchestration` module (Cloud Composer managed Airflow, R-03) — in `terraform/gcp/orchestration/`
+- [X] T058 [P] [US1] GCP `ingestion` module — in `terraform/gcp/ingestion/`
+- [X] T059 [P] [US1] GCP `monitoring` module (OTel collector + Cloud Monitoring dashboards/alerts) — in `terraform/gcp/monitoring/`
+- [X] T060 [P] [US1] GCP placeholder modules `quality` and `semantic` — in `terraform/gcp/quality/` and `terraform/gcp/semantic/`
+- [X] T061 [US1] Generate the region-capability matrix from actual module availability per provider (contract rule: generated, not hand-maintained) and expose it to validation and adapters — in `control-plane/src/datafoundry/controlplane/providers/region_matrix.py`
+- [X] T062 [US1] CLI skeleton (typer app, API client, auth token handling) and `datafoundry validate --config` command (exit 1 with all errors + remediation) — in `cli/src/datafoundry/cli/main.py` and `cli/src/datafoundry/cli/commands/validate.py`
+- [X] T063 [US1] CLI `datafoundry deploy --config [--wait]` command: POST /platforms, stream ordered step progress from GET /runs/{run_id}, surface failures with error_detail — in `cli/src/datafoundry/cli/commands/deploy.py`
+- [X] T064 [US1] CLI `datafoundry status --platform` command (run progress, step list, failure reasons) — in `cli/src/datafoundry/cli/commands/status.py`
+- [X] T065 [US1] End-to-end integration pass on LocalStack: run Scenarios 1–3, fix step-ordering/timing issues, confirm run wall time recorded and disabled capabilities skipped, confirm audit records written for deploy/retry/rollback
 
 **Checkpoint**: US1 fully functional — a usable empty governed lakehouse deploys in one click on both providers with progress, retry, and rollback
 
