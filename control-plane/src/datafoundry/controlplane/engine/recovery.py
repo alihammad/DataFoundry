@@ -193,3 +193,65 @@ class RecoveryRunner:
             "rollback.resources_removed",
             extra={"run_id": str(run.id), "removed": removed},
         )
+
+    def _destroy_all_platform_runs(self, run: DeploymentRun) -> int:
+        """Destroy every run's resources for the platform (full platform destroy).
+
+        A ``destroy`` run has no steps of its own; the platform's resources were
+        created across prior deploy/update runs. Remove them all so no orphans
+        remain (SC-005).
+        """
+        run_ids = [
+            str(run_id)
+            for run_id in self.session.execute(
+                select(DeploymentRun.id).where(DeploymentRun.platform_id == run.platform_id)
+            ).scalars()
+        ]
+        total = 0
+        for run_id in run_ids:
+            total += self.gateway.destroy_run_resources(run_id)
+        return total
+
+    # -- destroy ---------------------------------------------------------------
+
+    def destroy(self, run_id: uuid.UUID) -> DeploymentRun:
+        """Destroy a whole platform (DELETE /platforms/{id}, T072).
+
+        Creates/executes a ``destroy`` run in reverse order: tears down every
+        capability and ends the platform ``destroyed``. Mirrors rollback but
+        applies to a ready/degraded platform and does not require the run to
+        be ``failed`` first.
+        """
+        run = self.session.get(DeploymentRun, run_id)
+        if run is None:
+            raise KeyError(f"run {run_id} not found")
+        platform = self.session.get(Platform, run.platform_id)
+        assert platform is not None
+
+        run.status = transition_run(run.status, RunStatus.running)
+        platform.status = transition_platform(platform.status, PlatformStatus.destroying)
+        self.session.flush()
+
+        try:
+            self._destroy_all_platform_runs(run)
+        except Exception as exc:
+            run.status = transition_run(run.status, RunStatus.failed)
+            run.failure_summary = f"destroy failed: {exc}"
+            platform.status = transition_platform(platform.status, PlatformStatus.failed)
+            self.session.flush()
+            raise RecoveryError(str(exc)) from exc
+
+        for step in reversed(_steps(self.session, run.id)):
+            if step.status in (StepStatus.succeeded, StepStatus.failed):
+                step.detail = ((step.detail or "") + " [destroyed]").strip()
+            elif step.status is StepStatus.pending:
+                step.status = StepStatus.skipped
+                step.detail = "platform destroyed before this step"
+            step.finished_at = datetime.now(UTC)
+
+        run.status = transition_run(run.status, RunStatus.rolled_back)
+        run.finished_at = datetime.now(UTC)
+        platform.status = transition_platform(platform.status, PlatformStatus.destroyed)
+        self.session.flush()
+        logger.info("run.destroyed", extra={"run_id": str(run_id)})
+        return run

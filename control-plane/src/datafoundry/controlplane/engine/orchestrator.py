@@ -144,6 +144,64 @@ class StepPlanner:
         )
         return steps
 
+    def plan_update(self, config: PlatformConfig, previous_enabled: set[str]) -> list[PlannedStep]:
+        """Update plan (T071/T082): only affected modules are applied.
+
+        - pre-flight + approval gate + health-checks always run (re-validate).
+        - a capability newly enabled (or whose presence changed) is ``pending``.
+        - a capability unchanged since the previous version is ``skipped``
+          with detail ``unchanged`` (re-render only affected modules).
+        - a capability now disabled is ``skipped`` with detail ``capability disabled``.
+        """
+        steps: list[PlannedStep] = [
+            PlannedStep(key=key, capability=None, status=StepStatus.pending)
+            for key in PRE_FLIGHT_STEPS
+        ]
+        if config.is_production:
+            steps.append(
+                PlannedStep(key=APPROVAL_GATE_STEP, capability=None, status=StepStatus.pending)
+            )
+
+        enabled = self.registry.resolve_enabled(config.capabilities.explicitly_enabled())
+        all_capabilities = sorted(
+            self.registry.capabilities.values(),
+            key=lambda c: (c.deploy_step, c.key),
+        )
+        for capability in all_capabilities:
+            module_path = capability.module_path(config.platform.provider)
+            if capability.key in enabled and capability.key not in previous_enabled:
+                steps.append(
+                    PlannedStep(
+                        key=step_key_for_capability(capability.key),
+                        capability=capability.key,
+                        status=StepStatus.pending,
+                        terraform_module=module_path,
+                    )
+                )
+            elif capability.key in enabled:
+                steps.append(
+                    PlannedStep(
+                        key=step_key_for_capability(capability.key),
+                        capability=capability.key,
+                        status=StepStatus.skipped,
+                        detail="unchanged",
+                    )
+                )
+            else:
+                steps.append(
+                    PlannedStep(
+                        key=step_key_for_capability(capability.key),
+                        capability=capability.key,
+                        status=StepStatus.skipped,
+                        detail="capability disabled",
+                    )
+                )
+
+        steps.append(
+            PlannedStep(key=HEALTH_CHECKS_STEP, capability=None, status=StepStatus.pending)
+        )
+        return steps
+
 
 _default_planner = StepPlanner()
 
@@ -255,11 +313,13 @@ class Orchestrator:
         initiated_by: str,
         approval_ref: str | None = None,
         idempotency_key: str | None = None,
+        planned_steps: list[PlannedStep] | None = None,
     ) -> DeploymentRun:
         """Create a queued run + its full ordered step list.
 
         Enforces one active run per platform (R-12): the caller must hold the
-        platform row lock (``lock_platform_for_update``).
+        platform row lock (``lock_platform_for_update``). ``planned_steps``
+        overrides the default full plan (used by the update path, T071).
         """
         if has_active_run(self.session, platform.id):
             raise ActiveRunError(f"platform {platform.name} already has an active run")
@@ -276,7 +336,8 @@ class Orchestrator:
         self.session.add(run)
         self.session.flush()
 
-        for position, planned in enumerate(self.planner.plan(config), start=1):
+        steps = planned_steps if planned_steps is not None else self.planner.plan(config)
+        for position, planned in enumerate(steps, start=1):
             self.session.add(
                 DeploymentStep(
                     run_id=run.id,
@@ -299,3 +360,36 @@ class Orchestrator:
 
     def set_platform_status(self, platform: Platform, status: PlatformStatus) -> None:
         platform.status = transition_platform(platform.status, status)
+
+    # -- update path (T071/T082) ---------------------------------------------------
+
+    def queue_update(
+        self,
+        *,
+        platform: Platform,
+        config: PlatformConfig,
+        config_version: PlatformConfigVersion,
+        previous_enabled: set[str],
+        initiated_by: str,
+        approval_ref: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> DeploymentRun:
+        """Queue an ``update`` run that applies only affected modules.
+
+        ``previous_enabled`` is the enabled set of the previous config version;
+        unchanged capabilities are recorded ``skipped`` (detail ``unchanged``),
+        newly enabled ones are ``pending`` (FR-012, US3-AC1). The caller must
+        hold the platform row lock and have transitioned the platform to
+        ``deploying``.
+        """
+        planned = self.planner.plan_update(config, previous_enabled)
+        return self.queue_run(
+            platform=platform,
+            config=config,
+            config_version=config_version,
+            run_type=RunType.update,
+            initiated_by=initiated_by,
+            approval_ref=approval_ref,
+            idempotency_key=idempotency_key,
+            planned_steps=planned,
+        )
