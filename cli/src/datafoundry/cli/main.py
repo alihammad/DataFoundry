@@ -15,6 +15,8 @@ import sys
 
 import typer
 from datafoundry.cli.commands import deploy as deploy_cmd
+from datafoundry.cli.commands import destroy as destroy_cmd
+from datafoundry.cli.commands import export as export_cmd
 from datafoundry.cli.commands import status as status_cmd
 from datafoundry.cli.commands import validate as validate_cmd
 
@@ -28,6 +30,8 @@ app = typer.Typer(
 app.command()(validate_cmd.validate)
 app.command()(deploy_cmd.deploy)
 app.command()(status_cmd.status)
+app.command()(export_cmd.export)
+app.command()(destroy_cmd.destroy)
 
 
 def main() -> None:  # pragma: no cover - console entry point

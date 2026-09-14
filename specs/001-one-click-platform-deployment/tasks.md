@@ -127,19 +127,19 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T066 [P] [US2] Contract tests for `GET /api/v1/platforms/{platform_id}/config` (version, config_yaml, config_hash, git_ref; secret-scan guarantee), `DELETE /api/v1/platforms/{platform_id}` (202 destroy run; approval_ref required for production), `GET /api/v1/platforms/{platform_id}/runs` (auditable history fields incl. duration_seconds, outcome) — in `control-plane/tests/contract/test_config_export_api.py`
-- [ ] T067 [P] [US2] Integration test for quickstart Scenario 4: export → destroy → redeploy produces matching platform (diff only timestamps/run ids), identical config_hash (determinism), gitleaks-clean export — in `control-plane/tests/integration/test_reproducibility.py`
-- [ ] T068 [P] [US2] Integration test for quickstart Scenario 5: production deploy without approval rejected in validation with nothing provisioned; duplicate platform name in same cloud scope → 409 name_taken, first platform untouched — in `control-plane/tests/integration/test_prod_controls.py`
+- [X] T066 [P] [US2] Contract tests for `GET /api/v1/platforms/{platform_id}/config` (version, config_yaml, config_hash, git_ref; secret-scan guarantee), `DELETE /api/v1/platforms/{platform_id}` (202 destroy run; approval_ref required for production), `GET /api/v1/platforms/{platform_id}/runs` (auditable history fields incl. duration_seconds, outcome) — in `control-plane/tests/contract/test_config_export_api.py`
+- [X] T067 [P] [US2] Integration test for quickstart Scenario 4: export → destroy → redeploy produces matching platform (diff only timestamps/run ids), identical config_hash (determinism), gitleaks-clean export — in `control-plane/tests/integration/test_reproducibility.py`
+- [X] T068 [P] [US2] Integration test for quickstart Scenario 5: production deploy without approval rejected in validation with nothing provisioned; duplicate platform name in same cloud scope → 409 name_taken, first platform untouched — in `control-plane/tests/integration/test_prod_controls.py`
 
 ### Implementation for User Story 2
 
-- [ ] T069 [US2] Implement config export service: canonical YAML serialisation (sorted keys, normalised whitespace), SHA-256 `config_hash`, mandatory secret-scan before returning/storing (FR-011, SC-006) — in `control-plane/src/datafoundry/controlplane/config/export.py`
-- [ ] T070 [US2] Implement PlatformConfigVersion lifecycle: immutable versioned snapshots, version increment per platform, idempotent deploy on identical config_hash, source (`api`/`cli`/`git`) + git_ref provenance recording — in `control-plane/src/datafoundry/controlplane/config/versioning.py`
-- [ ] T071 [US2] Implement update flow: config change on a `ready`/`degraded` platform → validation → new config version → `update` run (state transition ready→deploying per data-model.md), re-rendering only affected modules — in `control-plane/src/datafoundry/controlplane/engine/orchestrator.py` (update path) and `api/platforms.py`
-- [ ] T072 [US2] Implement destroy flow: `DELETE /api/v1/platforms/{platform_id}` (production requires `?approval_ref=`), `destroy` run type, reverse-order teardown, platform → `destroyed` — in `control-plane/src/datafoundry/controlplane/api/platforms.py` and `engine/recovery.py`
-- [ ] T073 [US2] Implement `GET /api/v1/platforms/{platform_id}/runs` auditable history endpoint (FR-014: who, when, configuration version, outcome, duration) — in `control-plane/src/datafoundry/controlplane/api/platforms.py`
-- [ ] T074 [US2] GitOps workflow: `platform-configs/<platform-name>/<env>.yaml` layout enforcement, git-source ingestion recording (`source=git`, `git_ref`), PR-gated change documentation — in `platform-configs/README.md` and `control-plane/src/datafoundry/controlplane/config/gitops.py`
-- [ ] T075 [US2] CLI `datafoundry export --platform` (writes secret-free YAML to stdout) and `datafoundry destroy --platform [--wait]` commands — in `cli/src/datafoundry/cli/commands/export.py` and `cli/src/datafoundry/cli/commands/destroy.py`
+- [X] T069 [US2] Implement config export service: canonical YAML serialisation (sorted keys, normalised whitespace), SHA-256 `config_hash`, mandatory secret-scan before returning/storing (FR-011, SC-006) — in `control-plane/src/datafoundry/controlplane/config/export.py`
+- [X] T070 [US2] Implement PlatformConfigVersion lifecycle: immutable versioned snapshots, version increment per platform, idempotent deploy on identical config_hash, source (`api`/`cli`/`git`) + git_ref provenance recording — in `control-plane/src/datafoundry/controlplane/config/versioning.py`
+- [X] T071 [US2] Implement update flow: config change on a `ready`/`degraded` platform → validation → new config version → `update` run (state transition ready→deploying per data-model.md), re-rendering only affected modules — in `control-plane/src/datafoundry/controlplane/engine/orchestrator.py` (update path) and `api/platforms.py`
+- [X] T072 [US2] Implement destroy flow: `DELETE /api/v1/platforms/{platform_id}` (production requires `?approval_ref=`), `destroy` run type, reverse-order teardown, platform → `destroyed` — in `control-plane/src/datafoundry/controlplane/api/platforms.py` and `engine/recovery.py`
+- [X] T073 [US2] Implement `GET /api/v1/platforms/{platform_id}/runs` auditable history endpoint (FR-014: who, when, configuration version, outcome, duration) — in `control-plane/src/datafoundry/controlplane/api/platforms.py`
+- [X] T074 [US2] GitOps workflow: `platform-configs/<platform-name>/<env>.yaml` layout enforcement, git-source ingestion recording (`source=git`, `git_ref`), PR-gated change documentation — in `platform-configs/README.md` and `control-plane/src/datafoundry/controlplane/config/gitops.py`
+- [X] T075 [US2] CLI `datafoundry export --platform` (writes secret-free YAML to stdout) and `datafoundry destroy --platform [--wait]` commands — in `cli/src/datafoundry/cli/commands/export.py` and `cli/src/datafoundry/cli/commands/destroy.py`
 
 **Checkpoint**: US1 + US2 both work independently — platforms are fully reproducible from versioned code (SC-002)
 
@@ -153,16 +153,16 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T076 [P] [US3] Contract tests for `GET /api/v1/platforms/{platform_id}` (health array, storage_utilisation, latest_run, recent_failures shape), `GET /api/v1/capabilities`, `GET /api/v1/providers/{provider}/regions?capability=`, `POST /api/v1/platforms/{platform_id}/health-checks` per contracts/deployment-api.md §1/§3/§4 — in `control-plane/tests/contract/test_health_api.py`
-- [ ] T077 [P] [US3] Integration test for quickstart Scenario 7: stop catalog container in dev, trigger re-check, platform flips to `degraded`, failed component flagged with detail + `last_check_at`; capability-disabled platform has no semantic-layer resources (US3-AC1) — in `control-plane/tests/integration/test_health_dashboard.py`
+- [X] T076 [P] [US3] Contract tests for `GET /api/v1/platforms/{platform_id}` (health array, storage_utilisation, latest_run, recent_failures shape), `GET /api/v1/capabilities`, `GET /api/v1/providers/{provider}/regions?capability=`, `POST /api/v1/platforms/{platform_id}/health-checks` per contracts/deployment-api.md §1/§3/§4 — in `control-plane/tests/contract/test_health_api.py`
+- [X] T077 [P] [US3] Integration test for quickstart Scenario 7: stop catalog container in dev, trigger re-check, platform flips to `degraded`, failed component flagged with detail + `last_check_at`; capability-disabled platform has no semantic-layer resources (US3-AC1) — in `control-plane/tests/integration/test_health_dashboard.py`
 
 ### Implementation for User Story 3
 
-- [ ] T078 [US3] Implement platform detail endpoint `GET /api/v1/platforms/{platform_id}`: capabilities_enabled, health results, storage_utilisation, latest_run, recent_failures per contract — in `control-plane/src/datafoundry/controlplane/api/platforms.py`
-- [ ] T079 [US3] Implement `GET /api/v1/capabilities` (registry catalog incl. providers list) and `GET /api/v1/providers/{provider}/regions?capability=` (generated matrix from T061) — in `control-plane/src/datafoundry/controlplane/api/capabilities.py`
-- [ ] T080 [US3] Implement on-demand health re-check `POST /api/v1/platforms/{platform_id}/health-checks` (202 + check_id) and readiness rule engine: `ready` iff all enabled capabilities' latest results healthy, any unhealthy → `degraded` with component flagged (FR-007, US3-AC3) — in `control-plane/src/datafoundry/controlplane/health/service.py`
-- [ ] T081 [US3] Implement storage utilisation collection (bronze/silver/gold byte counts per zone via provider adapters) — in `control-plane/src/datafoundry/controlplane/health/utilisation.py`
-- [ ] T082 [US3] Implement enable-capability-later path: config change enabling a previously omitted capability runs an `update` run that adds only the new modules (FR-012, US3-AC1), with dependency-closure validation — extends `engine/orchestrator.py` update path and `config/validation.py`
+- [X] T078 [US3] Implement platform detail endpoint `GET /api/v1/platforms/{platform_id}`: capabilities_enabled, health results, storage_utilisation, latest_run, recent_failures per contract — in `control-plane/src/datafoundry/controlplane/api/platforms.py`
+- [X] T079 [US3] Implement `GET /api/v1/capabilities` (registry catalog incl. providers list) and `GET /api/v1/providers/{provider}/regions?capability=` (generated matrix from T061) — in `control-plane/src/datafoundry/controlplane/api/capabilities.py`
+- [X] T080 [US3] Implement on-demand health re-check `POST /api/v1/platforms/{platform_id}/health-checks` (202 + check_id) and readiness rule engine: `ready` iff all enabled capabilities' latest results healthy, any unhealthy → `degraded` with component flagged (FR-007, US3-AC3) — in `control-plane/src/datafoundry/controlplane/health/service.py`
+- [X] T081 [US3] Implement storage utilisation collection (bronze/silver/gold byte counts per zone via provider adapters) — in `control-plane/src/datafoundry/controlplane/health/utilisation.py`
+- [X] T082 [US3] Implement enable-capability-later path: config change enabling a previously omitted capability runs an `update` run that adds only the new modules (FR-012, US3-AC1), with dependency-closure validation — extends `engine/orchestrator.py` update path and `config/validation.py`
 
 **Checkpoint**: All three user stories independently functional
 

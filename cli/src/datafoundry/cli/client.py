@@ -58,6 +58,9 @@ class ApiClient:
     ) -> httpx.Response:
         return self._client.post(f"{API_PREFIX}{path}", json=json_body, headers=headers)
 
+    def delete(self, path: str, **params: Any) -> httpx.Response:
+        return self._client.delete(f"{API_PREFIX}{path}", params=params or None)
+
     # -- problem+json handling -------------------------------------------
 
     @staticmethod

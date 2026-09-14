@@ -67,6 +67,10 @@ class CloudGateway(abc.ABC):
         """endpoint-responds runner probe."""
 
     @abc.abstractmethod
+    def zone_bytes(self, bucket: str, zone: str) -> int:
+        """Storage utilisation probe: byte count under a zone prefix (T081)."""
+
+    @abc.abstractmethod
     def destroy_run_resources(self, run_id: str) -> int:
         """Remove every resource created by ``run_id`` (scoped rollback,
         R-06/SC-005). Returns the number of resources removed."""
@@ -187,6 +191,15 @@ class SimulatedCloudGateway(CloudGateway):
             return True, "responds (simulated)"
         return False, "no response (simulated)"
 
+    def zone_bytes(self, bucket: str, zone: str) -> int:
+        # Deterministic per-zone byte count derived from recorded zone-prefix
+        # resources: each prefix contributes a fixed amount (simulated util).
+        prefix = f"{bucket}/{zone}/"
+        count = sum(
+            1 for r in self._resources if r.kind == "zone_prefix" and r.identifier == prefix
+        )
+        return count * 1024  # 1 KiB per recorded prefix (simulated)
+
     def resources_for_run(self, run_id: str) -> list[ResourceRecord]:
         return [r for r in self._resources if r.run_id == run_id]
 
@@ -298,6 +311,20 @@ class AwsCloudGateway(CloudGateway):
             return ok, "decrypt round-trip ok" if ok else "plaintext mismatch"
         except (ClientError, BotoCoreError) as exc:
             return False, str(exc)
+
+    def zone_bytes(self, bucket: str, zone: str) -> int:
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        s3 = self._client("s3")
+        total = 0
+        try:
+            paginator = s3.get_paginator("list_objects_v2")
+            for page in paginator.paginate(Bucket=bucket, Prefix=f"{zone}/"):
+                for obj in page.get("Contents", []):
+                    total += obj.get("Size", 0)
+        except (ClientError, BotoCoreError):
+            return 0
+        return total
 
     def endpoint_responds(self, endpoint: str) -> tuple[bool, str]:
         if endpoint.startswith("http://") or endpoint.startswith("https://"):
