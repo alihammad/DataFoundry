@@ -452,7 +452,6 @@ def get_platform_detail(
     capabilities_enabled: list[str] = []
     if platform.current_config_version_id is not None:
         import yaml
-
         from datafoundry.controlplane.config.schema import PlatformConfig
 
         stored = session.get(PlatformConfigVersion, platform.current_config_version_id)
@@ -584,7 +583,6 @@ def update_platform_config(
     previous_enabled: set[str] = set()
     if platform.current_config_version_id is not None:
         import yaml
-
         from datafoundry.controlplane.config.schema import PlatformConfig as PCSchema
 
         stored = session.get(PlatformConfigVersion, platform.current_config_version_id)

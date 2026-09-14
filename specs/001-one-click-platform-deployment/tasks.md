@@ -172,14 +172,14 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 **Purpose**: Bootstrap deliverables, parity/performance verification, security hardening, docs
 
-- [ ] T083 [P] Write bootstrap runbook (two-step: apply `terraform/control-plane/` then normal operation) and disaster-recovery runbook (recreate platform from exported config) — in `docs/runbooks/bootstrap.md` and `docs/runbooks/disaster-recovery.md`
-- [ ] T084 [P] Control-plane bootstrap Terraform for AWS (ECS Fargate, RDS metadata store, KMS-encrypted, TLS endpoints) — in `terraform/control-plane/aws/`
-- [ ] T085 [P] Control-plane bootstrap Terraform for GCP (Cloud Run, Cloud SQL metadata store, CMEK, TLS) — in `terraform/control-plane/gcp/`
-- [ ] T086 [P] Capability-parity checklist generator (SC-003): produce checklist from `GET /capabilities` + module contract conformance for AWS-vs-GCP comparison runs — in `scripts/parity_checklist.py`
-- [ ] T087 Performance verification: standard platform deploy < 30 min in sandbox accounts (SC-001, FR-016, manual E2E gate Scenario 6), validation response < 2 s, run status polling < 500 ms p95 — record results in `docs/runbooks/performance-baseline.md`
-- [ ] T088 [P] Security hardening pass: TLS-only enforcement on all endpoints, `encryption_enforced` non-overridable false in production modules (FR-017), log/response redaction audit against SC-006, gitleaks gate in CI verified
-- [ ] T089 Run full quickstart.md validation (Scenarios 1–7) against a clean checkout and fix any gaps
-- [ ] T090 [P] Repository documentation: root `README.md` (architecture, quickstart link, monorepo layout) and `control-plane/README.md` / `cli/README.md` developer guides
+- [X] T083 [P] Write bootstrap runbook (two-step: apply `terraform/control-plane/` then normal operation) and disaster-recovery runbook (recreate platform from exported config) — in `docs/runbooks/bootstrap.md` and `docs/runbooks/disaster-recovery.md`
+- [X] T084 [P] Control-plane bootstrap Terraform for AWS (ECS Fargate, RDS metadata store, KMS-encrypted, TLS endpoints) — in `terraform/control-plane/aws/`
+- [X] T085 [P] Control-plane bootstrap Terraform for GCP (Cloud Run, Cloud SQL metadata store, CMEK, TLS) — in `terraform/control-plane/gcp/`
+- [X] T086 [P] Capability-parity checklist generator (SC-003): produce checklist from `GET /capabilities` + module contract conformance for AWS-vs-GCP comparison runs — in `scripts/parity_checklist.py`
+- [X] T087 Performance verification: standard platform deploy < 30 min in sandbox accounts (SC-001, FR-016, manual E2E gate Scenario 6), validation response < 2 s, run status polling < 500 ms p95 — record results in `docs/runbooks/performance-baseline.md`
+- [X] T088 [P] Security hardening pass: TLS-only enforcement on all endpoints, `encryption_enforced` non-overridable false in production modules (FR-017), log/response redaction audit against SC-006, gitleaks gate in CI verified
+- [X] T089 Run full quickstart.md validation (Scenarios 1–7) against a clean checkout and fix any gaps
+- [X] T090 [P] Repository documentation: root `README.md` (architecture, quickstart link, monorepo layout) and `control-plane/README.md` / `cli/README.md` developer guides
 
 ---
 

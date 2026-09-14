@@ -1,3 +1,10 @@
+check "encryption_enforced_in_production" {
+  assert {
+    condition     = var.environment != "production" || var.encryption_enforced
+    error_message = "FR-017: encryption_enforced must be true in production."
+  }
+}
+
 locals {
   name_prefix = "datafoundry-${var.platform_name}-${var.environment}"
   all_tags = merge(var.tags, {

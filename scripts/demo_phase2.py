@@ -16,7 +16,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "control-plane" / "src"))
 
 import yaml  # noqa: E402
-
 from datafoundry.controlplane.api.errors import ConfigValidationError  # noqa: E402
 from datafoundry.controlplane.audit.service import AuditSecretLeakError, AuditService  # noqa: E402
 from datafoundry.controlplane.capabilities.registry import default_registry  # noqa: E402
@@ -33,7 +32,13 @@ from datafoundry.controlplane.providers.base import default_providers  # noqa: E
 
 EXAMPLES = REPO_ROOT / "platform-configs" / "examples"
 GREEN, RED, YELLOW, CYAN, BOLD, DIM, RESET = (
-    "\033[32m", "\033[31m", "\033[33m", "\033[36m", "\033[1m", "\033[2m", "\033[0m",
+    "\033[32m",
+    "\033[31m",
+    "\033[33m",
+    "\033[36m",
+    "\033[1m",
+    "\033[2m",
+    "\033[0m",
 )
 
 
@@ -69,11 +74,20 @@ from pydantic import ValidationError  # noqa: E402
 
 bad_cases = [
     ("unknown field", {**raw, "bogusField": "x"}),
-    ("core capability disabled", {**raw, "capabilities": {**raw["capabilities"], "iam": {"enabled": False}}}),
+    (
+        "core capability disabled",
+        {**raw, "capabilities": {**raw["capabilities"], "iam": {"enabled": False}}},
+    ),
     ("invalid name 'Ab'", {**raw, "platform": {**raw["platform"], "name": "Ab"}}),
     ("reserved name 'system'", {**raw, "platform": {**raw["platform"], "name": "system"}}),
-    ("bronze retention 30 (must be -1)", {**raw, "storage": {"zones": {"bronze": {"retention_days": 30}}}}),
-    ("provider 'azure' (not in MVP)", {**raw, "platform": {**raw["platform"], "provider": "azure"}}),
+    (
+        "bronze retention 30 (must be -1)",
+        {**raw, "storage": {"zones": {"bronze": {"retention_days": 30}}}},
+    ),
+    (
+        "provider 'azure' (not in MVP)",
+        {**raw, "platform": {**raw["platform"], "provider": "azure"}},
+    ),
 ]
 for label, payload in bad_cases:
     try:
@@ -152,8 +166,10 @@ for pid in default_providers.provider_ids():
 
 aws = default_providers.get("aws")
 info(f"aws regions supporting 'orchestration': {len(aws.regions_for_capability('orchestration'))}")
-info(f"'us-west-99' is a valid aws region? {aws.region_supports('us-west-99', 'networking')} "
-     f"(bad-config.yaml caught here in T028)")
+info(
+    f"'us-west-99' is a valid aws region? {aws.region_supports('us-west-99', 'networking')} "
+    f"(bad-config.yaml caught here in T028)"
+)
 
 # ---------------------------------------------------------------------------
 header("7. ROOT MODULE GENERATOR: renders Terraform per run (T016)")
@@ -163,7 +179,7 @@ print(f"\n  {YELLOW}generated main.tf.json module blocks (in order):{RESET}")
 for name, block in doc["module"].items():
     print(f"    module.{name:<15} source={block['source']}")
 info(f"storage_zones.kms_key_ref = {doc['module']['storage_zones']['kms_key_ref']}")
-info(f"backend = s3 (versioned bucket + DynamoDB lock, R-05)")
+info("backend = s3 (versioned bucket + DynamoDB lock, R-05)")
 assert "quality" not in doc["module"], "disabled capability leaked into modules!"
 ok("disabled capabilities produce NO module block (FR-012)")
 
@@ -217,4 +233,7 @@ print(json.dumps(problem, indent=2))
 ok("every error carries {path, code, message, remediation} (SC-007)")
 
 print(f"\n{BOLD}{GREEN}All Phase 2 components demonstrated successfully.{RESET}\n")
-print(f"{DIM}Next: start the live server and open http://127.0.0.1:8000/healthz in a browser.{RESET}\n")
+print(
+    f"{DIM}Next: start the live server and open "
+    f"http://127.0.0.1:8000/healthz in a browser.{RESET}\n"
+)
