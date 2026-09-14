@@ -51,7 +51,9 @@ PLATFORM_TRANSITIONS: dict[PlatformStatus, frozenset[PlatformStatus]] = {
 #: Allowed DeploymentRun status transitions.
 RUN_TRANSITIONS: dict[RunStatus, frozenset[RunStatus]] = {
     RunStatus.queued: frozenset({RunStatus.running, RunStatus.failed}),
-    RunStatus.running: frozenset({RunStatus.succeeded, RunStatus.failed, RunStatus.paused}),
+    RunStatus.running: frozenset(
+        {RunStatus.succeeded, RunStatus.failed, RunStatus.paused, RunStatus.rolled_back}
+    ),
     RunStatus.paused: frozenset({RunStatus.running, RunStatus.failed}),
     RunStatus.failed: frozenset({RunStatus.running, RunStatus.rolled_back}),
     RunStatus.succeeded: frozenset(),  # terminal

@@ -46,9 +46,17 @@ class Settings:
     aws_secret_access_key: str = ""
     aws_region: str = "us-east-1"
 
-    # Dev-only fault injection, e.g. "orchestration" makes the deployment
-    # worker fail the step with that key (quickstart Scenario 3).
-    fault_injection: str = ""
+    # Dev-only fault injection (quickstart Scenario 3): when enabled, the
+    # deployment worker fails the step named by ``fault_injection_step``
+    # (default "orchestration") with a simulated error.
+    fault_injection: bool = False
+    fault_injection_step: str = "orchestration"
+
+    # Simulated cloud mode: when true (default in dev/tests) the worker
+    # executes steps against the in-memory SimulatedCloudGateway instead of
+    # spawning terraform; LocalStack E2E (quickstart Scenarios 2-3) runs with
+    # DF_SIMULATE_CLOUD=0 + DF_AWS_ENDPOINT_URL set.
+    simulate_cloud: bool = True
 
     # Auth: "cloud_iam" (federated identity verification) or "dev" (static
     # local identity, development only).
@@ -79,7 +87,9 @@ class Settings:
             aws_access_key_id=env.get("DF_AWS_ACCESS_KEY_ID", ""),
             aws_secret_access_key=env.get("DF_AWS_SECRET_ACCESS_KEY", ""),
             aws_region=env.get("DF_AWS_REGION", "us-east-1"),
-            fault_injection=env.get("DF_FAULT_INJECTION", ""),
+            fault_injection=_env_bool("DF_FAULT_INJECTION", False),
+            fault_injection_step=env.get("DF_FAULT_INJECTION_STEP", "orchestration"),
+            simulate_cloud=_env_bool("DF_SIMULATE_CLOUD", True),
             auth_mode=env.get("DF_AUTH_MODE", "dev"),
             dev_identity=env.get("DF_DEV_IDENTITY", "dev@datafoundry.local"),
             log_level=env.get("DF_LOG_LEVEL", "INFO"),

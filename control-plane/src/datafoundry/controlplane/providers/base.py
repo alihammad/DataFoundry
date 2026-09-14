@@ -109,13 +109,28 @@ class ProviderRegistry:
 
 
 def build_default_registry() -> ProviderRegistry:
-    """Registry with the MVP providers (AWS, GCP) registered."""
+    """Registry with the MVP providers (AWS, GCP) registered.
+
+    Adapters resolve the region-capability matrix from the actual terraform
+    module tree (T061: generated, not hand-maintained) via
+    ``settings.terraform_root``.
+    """
+    from datafoundry.controlplane.config.settings import get_settings
     from datafoundry.controlplane.providers.aws import AwsAdapter
     from datafoundry.controlplane.providers.gcp import GcpAdapter
 
+    settings = get_settings()
     registry = ProviderRegistry()
-    registry.register(AwsAdapter())
-    registry.register(GcpAdapter())
+    registry.register(
+        AwsAdapter(
+            terraform_root=settings.terraform_root,
+            endpoint_url=settings.aws_endpoint_url,
+            region=settings.aws_region,
+            access_key_id=settings.aws_access_key_id,
+            secret_access_key=settings.aws_secret_access_key,
+        )
+    )
+    registry.register(GcpAdapter(terraform_root=settings.terraform_root))
     return registry
 
 

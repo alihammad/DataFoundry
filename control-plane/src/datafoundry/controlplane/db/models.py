@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     DateTime,
     Enum,
@@ -28,9 +29,13 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+#: JSONB on PostgreSQL; plain JSON elsewhere (SQLite test harness).
+JSONVariant = JSONB().with_variant(JSON(), "sqlite")
 
 
 def _utcnow() -> datetime:
@@ -114,7 +119,15 @@ class Platform(Base):
     __tablename__ = "platforms"
     __table_args__ = (
         UniqueConstraint("provider", "cloud_scope_id", "name", name="uq_platform_scope_name"),
-        CheckConstraint("name ~ '^[a-z][a-z0-9-]{2,62}$'", name="ck_platform_name_format"),
+        # Portable form of ^[a-z][a-z0-9-]{2,62}$ (the Postgres migration uses
+        # the regex operator; this expression also compiles on SQLite so the
+        # test harness can create_all). Full regex validation lives in the
+        # Pydantic schema (config/schema.py).
+        CheckConstraint(
+            "length(name) BETWEEN 3 AND 63 AND name = lower(name) "
+            "AND substr(name, 1, 1) BETWEEN 'a' AND 'z'",
+            name="ck_platform_name_format",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
@@ -194,9 +207,11 @@ class DeploymentRun(Base):
             "uq_one_active_run_per_platform",
             "platform_id",
             unique=True,
-            postgresql_where=Text("status IN ('queued', 'running', 'paused')"),
+            postgresql_where=text("status IN ('queued', 'running', 'paused')"),
+            sqlite_where=text("status IN ('queued', 'running', 'paused')"),
         ),
         UniqueConstraint("terraform_workspace", name="uq_run_workspace"),
+        UniqueConstraint("idempotency_key", name="uq_run_idempotency_key"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
@@ -216,6 +231,9 @@ class DeploymentRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     terraform_workspace: Mapped[str] = mapped_column(String(256), nullable=False)
     failure_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Client-supplied Idempotency-Key (deployment-api.md cross-cutting
+    #: rules): replays of POST /platforms return the original run.
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
@@ -295,7 +313,7 @@ class AuditRecord(Base):
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
     #: Secret-scanned JSON payload (SC-006 invariant 1).
-    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False, default=dict)
 
     platform: Mapped[Platform | None] = relationship(back_populates="audit_records")
 

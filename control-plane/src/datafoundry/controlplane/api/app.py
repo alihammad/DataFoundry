@@ -8,10 +8,50 @@ T079).
 
 from __future__ import annotations
 
+import logging
+import threading
+import uuid
+
 from datafoundry.controlplane.api.errors import register_error_handlers
 from datafoundry.controlplane.config.settings import Settings, get_settings
 from datafoundry.controlplane.observability import setup_observability
 from fastapi import APIRouter, FastAPI
+
+logger = logging.getLogger(__name__)
+
+
+def _wire_runtime(app: FastAPI, settings: Settings) -> None:
+    """Attach the DB sessionmaker, cloud gateway, worker and dispatch hook.
+
+    The dispatcher runs the (synchronous) worker in a background thread so
+    POST /platforms returns 202 immediately while the run executes (async
+    model, deployment-api.md cross-cutting rules). Tests override
+    ``app.state.dispatcher`` with a no-op and drive the worker explicitly.
+    """
+    from datafoundry.controlplane.db.session import get_sessionmaker
+    from datafoundry.controlplane.engine.gateway import build_gateway
+
+    app.state.sessionmaker = get_sessionmaker()
+    app.state.gateway = build_gateway(settings)
+
+    def _dispatch(run_id: uuid.UUID) -> None:
+        def _process() -> None:
+            session = app.state.sessionmaker()
+            try:
+                from datafoundry.controlplane.engine.worker import WorkerRunner
+
+                worker = WorkerRunner(session, settings=settings, gateway=app.state.gateway)
+                worker.process_run(run_id)
+                session.commit()
+            except Exception:
+                session.rollback()
+                logger.exception("run.dispatch_failed", extra={"run_id": str(run_id)})
+            finally:
+                session.close()
+
+        threading.Thread(target=_process, daemon=True, name=f"run-{run_id}").start()
+
+    app.state.dispatcher = _dispatch
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -24,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json",
     )
     app.state.settings = settings
+    _wire_runtime(app, settings)
 
     setup_observability(app, settings)
     register_error_handlers(app)

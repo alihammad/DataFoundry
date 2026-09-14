@@ -50,10 +50,12 @@ class ModuleAvailabilityMatrix:
 
     def _probe_disk(self) -> frozenset[str]:
         available: set[str] = set()
+        root_missing = self._terraform_root is None or not self._terraform_root.is_dir()
         for capability in default_registry.capabilities.values():
-            if self._terraform_root is None:
-                # No terraform tree resolvable (e.g. unit tests): assume the
-                # full MVP catalog is available; restrictions still apply.
+            if root_missing:
+                # No terraform tree resolvable (e.g. unit tests, packaged
+                # control plane): assume the full MVP catalog is available;
+                # region restrictions still apply.
                 available.add(capability.key)
                 continue
             module_dir = (
