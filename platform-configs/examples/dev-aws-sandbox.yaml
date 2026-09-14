@@ -1,0 +1,51 @@
+# AWS sandbox deploy — quickstart Scenario 6 (manual E2E gate).
+# Requires an AWS sandbox account with deploy permissions; cloud_scope_id is
+# the AWS account id supplied at deploy time (never stored in the config).
+apiVersion: datafoundry/v1
+kind: PlatformConfig
+
+platform:
+  name: customer-analytics-aws
+  provider: aws
+  region: ap-southeast-2
+  environment: development
+
+capabilities:
+  storage_zones: { enabled: true }
+  networking: { enabled: true }
+  iam: { enabled: true }
+  secrets: { enabled: true }
+  compute: { enabled: true, size: small }
+  catalog: { enabled: true }
+  orchestration: { enabled: true }
+  ingestion: { enabled: true }
+  quality: { enabled: false }
+  semantic_layer: { enabled: false }
+  monitoring: { enabled: true }
+
+storage:
+  table_format: iceberg
+  zones:
+    bronze: { retention_days: -1 }
+    silver: { retention_days: 30 }
+    gold: { retention_days: 30 }
+
+encryption:
+  at_rest:
+    kms_key_ref: platform-cmk
+    algorithm: AES-256
+  in_transit:
+    min_tls: "1.2"
+
+networking:
+  isolation: private
+  cidr: 10.60.0.0/16
+
+secrets:
+  backend: aws_secrets_manager
+  refs:
+    platform-credentials: platform-credentials
+
+observability:
+  tracing: opentelemetry
+  log_retention_days: 30

@@ -1,0 +1,37 @@
+# Intentionally invalid — quickstart Scenario 1.
+# Expected: validation returns ALL THREE errors in one 422 response:
+#   1. capabilities.semantic_layer enabled without capabilities.catalog (dependency closure)
+#   2. platform.region "us-west-99" does not exist for provider aws (region-capability matrix)
+#   3. environment=production without approval.ref / approval.approved_by (FR-010)
+apiVersion: datafoundry/v1
+kind: PlatformConfig
+
+platform:
+  name: bad-platform
+  provider: aws
+  region: us-west-99
+  environment: production
+
+capabilities:
+  storage_zones: { enabled: true }
+  networking: { enabled: true }
+  iam: { enabled: true }
+  secrets: { enabled: true }
+  compute: { enabled: true, size: small }
+  catalog: { enabled: false }
+  orchestration: { enabled: false }
+  ingestion: { enabled: false }
+  quality: { enabled: false }
+  semantic_layer: { enabled: true }
+  monitoring: { enabled: false }
+
+storage:
+  table_format: iceberg
+  zones:
+    bronze: { retention_days: -1 }
+    silver: { retention_days: 365 }
+    gold: { retention_days: 365 }
+
+networking:
+  isolation: private
+  cidr: 10.30.0.0/16

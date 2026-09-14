@@ -1,0 +1,51 @@
+# Production config missing the approval block — quickstart Scenario 5.
+# Expected: rejected in validation (FR-010: approval.ref + approval.approved_by
+# required for environment=production); nothing provisioned.
+apiVersion: datafoundry/v1
+kind: PlatformConfig
+
+platform:
+  name: prod-no-approval
+  provider: aws
+  region: us-east-1
+  environment: production
+
+capabilities:
+  storage_zones: { enabled: true }
+  networking: { enabled: true }
+  iam: { enabled: true }
+  secrets: { enabled: true }
+  compute: { enabled: true, size: medium }
+  catalog: { enabled: true }
+  orchestration: { enabled: true }
+  ingestion: { enabled: true }
+  quality: { enabled: false }
+  semantic_layer: { enabled: false }
+  monitoring: { enabled: true }
+
+storage:
+  table_format: iceberg
+  zones:
+    bronze: { retention_days: -1 }
+    silver: { retention_days: 365 }
+    gold: { retention_days: 365 }
+
+encryption:
+  at_rest:
+    kms_key_ref: platform-cmk
+    algorithm: AES-256
+  in_transit:
+    min_tls: "1.2"
+
+networking:
+  isolation: private
+  cidr: 10.40.0.0/16
+
+secrets:
+  backend: aws_secrets_manager
+  refs:
+    platform-credentials: platform-credentials
+
+observability:
+  tracing: opentelemetry
+  log_retention_days: 90
