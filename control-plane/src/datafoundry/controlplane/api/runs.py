@@ -12,6 +12,11 @@ from __future__ import annotations
 
 import uuid
 
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from datafoundry.controlplane.api.auth import ACTION_UPDATE_PLATFORM, Caller, require_action
 from datafoundry.controlplane.api.deps import (
     get_cloud_gateway,
@@ -23,10 +28,6 @@ from datafoundry.controlplane.audit.service import AuditService
 from datafoundry.controlplane.config.settings import Settings
 from datafoundry.controlplane.db.models import DeploymentRun, DeploymentStep, RunStatus
 from datafoundry.controlplane.engine.recovery import RecoveryError, RecoveryRunner
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["runs"])
 
@@ -78,7 +79,7 @@ def _ordered_steps(session: Session, run_id: uuid.UUID) -> list[DeploymentStep]:
     return list(session.execute(stmt).scalars())
 
 
-def _iso(value) -> str | None:
+def _iso(value) -> str | None:  # noqa: ANN001
     return value.isoformat() if value is not None else None
 
 
@@ -102,7 +103,9 @@ class RunHistory(BaseModel):
 
 
 @router.get("/platforms/{platform_id}/runs", response_model=RunHistory)
-def list_platform_runs(platform_id: uuid.UUID, session: Session = Depends(get_db)) -> RunHistory:
+def list_platform_runs(
+    platform_id: uuid.UUID, session: Session = Depends(get_db)
+) -> RunHistory:
     """Auditable run history (FR-014, deployment-api.md §2)."""
     from datafoundry.controlplane.db.models import Platform, PlatformConfigVersion
 
