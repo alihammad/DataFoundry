@@ -1,0 +1,16 @@
+# DataFoundry CLI image (for CI jobs / containerised usage).
+# Build context: repository root (docker build -f docker/Dockerfile.cli .)
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY cli/pyproject.toml cli/README.md* ./cli/
+COPY cli/src ./cli/src
+RUN pip install ./cli
+
+ENTRYPOINT ["datafoundry"]
+CMD ["--help"]

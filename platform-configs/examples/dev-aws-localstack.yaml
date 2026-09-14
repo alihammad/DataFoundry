@@ -1,0 +1,54 @@
+apiVersion: datafoundry/v1
+kind: PlatformConfig
+
+platform:
+  name: customer-analytics-dev
+  provider: aws
+  region: us-east-1
+  environment: development
+
+capabilities:
+  storage_zones: { enabled: true }
+  networking: { enabled: true }
+  iam: { enabled: true }
+  secrets: { enabled: true }
+  compute: { enabled: true, size: small }
+  catalog: { enabled: true }
+  orchestration: { enabled: true }
+  ingestion: { enabled: true }
+  quality: { enabled: false }
+  semantic_layer: { enabled: false }
+  monitoring: { enabled: true }
+
+storage:
+  table_format: iceberg
+  zones:
+    bronze: { retention_days: -1 }
+    silver: { retention_days: 30 }
+    gold: { retention_days: 30 }
+
+encryption:
+  at_rest:
+    kms_key_ref: platform-cmk
+    algorithm: AES-256
+  in_transit:
+    min_tls: "1.2"
+
+networking:
+  isolation: private
+  cidr: 10.20.0.0/16
+
+secrets:
+  backend: aws_secrets_manager
+  refs:
+    platform-credentials: platform-credentials
+
+observability:
+  tracing: opentelemetry
+  log_retention_days: 14
+
+# LocalStack usage: point the control plane at the emulator via settings
+# (environment variables), not via this config — the schema is cloud-neutral
+# and strict. e.g.:
+#   DF_AWS_ENDPOINT_URL=http://localhost:4566
+#   DF_AWS_ACCESS_KEY_ID=test  DF_AWS_SECRET_ACCESS_KEY=test

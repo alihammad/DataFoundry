@@ -1,0 +1,40 @@
+# Ruff configuration — DataFoundry monorepo (control-plane + cli)
+line-length = 100
+target-version = "py312"
+
+extend-exclude = [
+    "terraform",
+    "specs",
+    "docs",
+    ".specify",
+]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "S",   # flake8-bandit (security — SC-006 support)
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "S101", # asserts are fine in tests
+]
+
+[lint.per-file-ignores]
+"control-plane/tests/**" = ["S"]
+"cli/tests/**" = ["S"]
+
+[lint.flake8-bugbear]
+# FastAPI dependency injection idiom.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Body"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
