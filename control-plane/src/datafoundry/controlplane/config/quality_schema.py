@@ -195,6 +195,17 @@ def _format_findings(findings: list[SecretFinding]) -> list[str]:
     return [f"secret-scan: {f.path} ({f.kind})" for f in findings]
 
 
+def gitops_provenance(git_ref: str | None) -> dict[str, str]:
+    """GitOps provenance marker for a quality definition (FR-018).
+
+    Mirrors ``config/gitops.py``: git-sourced definitions record
+    ``source=git`` + ``git_ref``; API-defined ones record ``source=api``.
+    Test-first support (FR-020): a gate/contract can be defined before the
+    transformation exists — provenance is independent of the pipeline.
+    """
+    return {"source": "git" if git_ref else "api", "git_ref": git_ref or ""}
+
+
 __all__ = [
     "BLOCKING_SEVERITIES",
     "CATEGORIES",
@@ -202,5 +213,6 @@ __all__ = [
     "GateConfig",
     "GateConfigError",
     "TestSpec",
+    "gitops_provenance",
     "validate_gate_config",
 ]

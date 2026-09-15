@@ -10,6 +10,8 @@ Covers:
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from datafoundry.controlplane.config.quality_schema import (
     CATEGORIES,
@@ -446,3 +448,66 @@ class TestQualitySecretScan:
 
     def test_clean_text_passes(self):
         scan_quality_text("known upstream incident; data verified manually", field="reason")
+
+
+# ---------------------------------------------------------------------------
+# Alerting (T047, FR-016) + GitOps provenance (T048, FR-018)
+# ---------------------------------------------------------------------------
+
+
+class TestQualityAlerts:
+    def test_emit_alert_redacts_secrets(self, session_factory):
+        from datafoundry.controlplane.quality.alerts import emit_alert
+
+        with session_factory() as sess:
+            emit_alert(
+                sess,
+                actor="dev@datafoundry.local",
+                kind="gate.failure",
+                dataset_id=uuid.uuid4(),
+                detail={
+                    "test": "uniqueness_customer_id",
+                    "failed_count": 3,
+                    "token": "AKIA1234567890ABCDEF",
+                },
+                severity="critical",
+            )
+            sess.commit()
+        # The audit record is written with the secret redacted.
+        from datafoundry.controlplane.db.models import AuditRecord
+
+        with session_factory() as sess:
+            record = sess.query(AuditRecord).one()
+            assert record.action == "quality.alert.gate.failure"
+            assert record.payload["test"] == "uniqueness_customer_id"
+            assert record.payload["token"] == "[redacted]"
+
+    def test_emit_alert_drops_raw_payload(self, session_factory):
+        from datafoundry.controlplane.quality.alerts import emit_alert
+
+        with session_factory() as sess:
+            emit_alert(
+                sess,
+                actor="dev@datafoundry.local",
+                kind="contract.violation",
+                dataset_id=uuid.uuid4(),
+                detail={"change": "type int->string", "raw": {"secret": "x"}},
+            )
+            sess.commit()
+        from datafoundry.controlplane.db.models import AuditRecord
+
+        with session_factory() as sess:
+            record = sess.query(AuditRecord).one()
+            assert "raw" not in record.payload
+
+
+class TestGitOpsProvenance:
+    def test_git_source(self):
+        from datafoundry.controlplane.config.quality_schema import gitops_provenance
+
+        assert gitops_provenance("abc123") == {"source": "git", "git_ref": "abc123"}
+
+    def test_api_source(self):
+        from datafoundry.controlplane.config.quality_schema import gitops_provenance
+
+        assert gitops_provenance(None) == {"source": "api", "git_ref": ""}

@@ -168,6 +168,55 @@ def render_markdown(checklist: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def quality_parity_check(repo_root: Path) -> dict[str, Any]:
+    """Quality-engine cloud-independence check (feature 004, FR-019, SC-008).
+
+    The quality engine must be cloud-independent: identical gate outcomes for
+    identical data/config on both clouds. It must never talk to a cloud SDK
+    directly — all reads go through the ``QualityGateway`` abstraction (S3/GCS
+    adapters). This check scans the quality engine source for forbidden
+    cloud-SDK imports (boto3, google.cloud) and confirms the engine routes
+    reads through the gateway.
+    """
+    quality_dir = repo_root / "control-plane" / "src" / "datafoundry" / "controlplane" / "quality"
+    forbidden = ("boto3", "google.cloud", "google.cloud.storage")
+    violations: list[str] = []
+    for path in sorted(quality_dir.rglob("*.py")):
+        text = path.read_text()
+        for token in forbidden:
+            if token in text:
+                violations.append(f"{path.relative_to(repo_root)}: imports {token}")
+
+    # The engine must route reads through the gateway (not a cloud SDK).
+    engine = quality_dir / "engine.py"
+    uses_gateway = "gateway" in engine.read_text() if engine.exists() else False
+
+    holds = not violations and uses_gateway
+    return {
+        "check": "quality_cloud_independence",
+        "holds": holds,
+        "forbidden_imports": violations,
+        "engine_routes_through_gateway": uses_gateway,
+    }
+
+
+def render_quality_parity(check: dict[str, Any]) -> str:
+    """Render the quality parity check as Markdown."""
+    lines = [
+        "# Quality Cloud-Independence Check (FR-019, SC-008)",
+        "",
+        f"Parity holds: **{check['holds']}**",
+        "",
+        f"Engine routes reads through gateway: **{check['engine_routes_through_gateway']}**",
+    ]
+    if check["forbidden_imports"]:
+        lines.append("")
+        lines.append("Forbidden cloud-SDK imports:")
+        for v in check["forbidden_imports"]:
+            lines.append(f"- {v}")
+    return "\n".join(lines) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Capability-parity checklist generator (SC-003)")
     parser.add_argument(
@@ -181,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
 
     terraform_root = Path(args.terraform_root)
     checklist = build_checklist(terraform_root)
+    quality_check = quality_parity_check(REPO_ROOT)
 
     if args.json:
         Path(args.json).write_text(json.dumps(checklist, indent=2, sort_keys=True) + "\n")
@@ -188,8 +238,10 @@ def main(argv: list[str] | None = None) -> int:
         Path(args.out).write_text(render_markdown(checklist))
     if not args.out and not args.json:
         print(render_markdown(checklist), end="")
+        print()
+        print(render_quality_parity(quality_check), end="")
 
-    return 0 if checklist["parity_holds"] else 1
+    return 0 if checklist["parity_holds"] and quality_check["holds"] else 1
 
 
 if __name__ == "__main__":  # pragma: no cover
