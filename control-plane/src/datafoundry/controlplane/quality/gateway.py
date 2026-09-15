@@ -47,6 +47,22 @@ class QualityGateway(abc.ABC):
     def read_quarantine(self, payload_ref: str) -> dict[str, Any] | None:
         """Read a quarantined record payload."""
 
+    @abc.abstractmethod
+    def replay_quarantine(
+        self,
+        *,
+        dataset_id: str,
+        batch_id: str,
+        payload_ref: str,
+        replay_run_id: str,
+        meta: dict[str, Any],
+    ) -> None:
+        """Re-enter a quarantined record at the appropriate stage (FR-009).
+
+        Idempotent: a successful replay removes the record from the active
+        quarantine queue so it cannot be processed twice (no duplicates).
+        """
+
 
 class SimulatedQualityGateway(QualityGateway):
     """In-memory quality inventory (dev mode / tests)."""
@@ -116,6 +132,30 @@ class SimulatedQualityGateway(QualityGateway):
 
     def read_quarantine(self, payload_ref: str) -> dict[str, Any] | None:
         return self._quarantine.get(payload_ref)
+
+    def replay_quarantine(
+        self,
+        *,
+        dataset_id: str,
+        batch_id: str,
+        payload_ref: str,
+        replay_run_id: str,
+        meta: dict[str, Any],
+    ) -> None:
+        """Re-enter a quarantined record; removes it from the active queue.
+
+        The simulated gateway keys its quarantine store by ``payload_ref``, so
+        a successful replay deletes the entry — replaying the same record twice
+        cannot duplicate it (FR-009). A fault hook (``replay_fail``) lets tests
+        exercise the attempt/escalation path.
+        """
+        if f"replay_fail:{payload_ref}" in self._faults:
+            raise RuntimeError(f"simulated replay failure for {payload_ref}")
+        self._quarantine.pop(payload_ref, None)
+
+    def force_replay_failure(self, payload_ref: str) -> None:
+        """Make replay of a payload fail (attempt/escalation path, FR-009)."""
+        self._faults.add(f"replay_fail:{payload_ref}")
 
 
 def build_fixture_schema(columns: dict[str, pa.DataType]) -> pa.Schema:
