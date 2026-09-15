@@ -127,3 +127,195 @@ class AuditService:
             platform_id=platform_id,
             payload={"version": version, "config_hash": config_hash},
         )
+
+    # -- feature 004 quality actions (T012, FR-011/FR-012, SC-007) ----------
+    #
+    # Quality entities are dataset-scoped; the audit record's ``platform_id``
+    # is left unset and the dataset id is carried in the payload. Every payload
+    # is secret-scanned by ``record`` before persist (SC-007).
+
+    def gate_defined(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        gate_id: uuid.UUID,
+        transition: str,
+        config_version: int,
+        config_hash: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="gate.defined",
+            payload={
+                "dataset_id": str(dataset_id),
+                "gate_id": str(gate_id),
+                "transition": transition,
+                "config_version": config_version,
+                "config_hash": config_hash,
+            },
+        )
+
+    def gate_updated(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        gate_id: uuid.UUID,
+        transition: str,
+        config_version: int,
+        config_hash: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="gate.updated",
+            payload={
+                "dataset_id": str(dataset_id),
+                "gate_id": str(gate_id),
+                "transition": transition,
+                "config_version": config_version,
+                "config_hash": config_hash,
+            },
+        )
+
+    def gate_run(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        gate_id: uuid.UUID,
+        report_id: uuid.UUID,
+        run_id: uuid.UUID,
+        decision: str,
+        config_version: int,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="gate.run",
+            payload={
+                "dataset_id": str(dataset_id),
+                "gate_id": str(gate_id),
+                "report_id": str(report_id),
+                "run_id": str(run_id),
+                "decision": decision,
+                "config_version": config_version,
+            },
+        )
+
+    def contract_registered(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        contract_id: uuid.UUID,
+        version: int,
+        origin: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="contract.registered",
+            payload={
+                "dataset_id": str(dataset_id),
+                "contract_id": str(contract_id),
+                "version": version,
+                "origin": origin,
+            },
+        )
+
+    def contract_inferred(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        contract_id: uuid.UUID,
+        version: int,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="contract.inferred",
+            payload={
+                "dataset_id": str(dataset_id),
+                "contract_id": str(contract_id),
+                "version": version,
+            },
+        )
+
+    def contract_approved(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        contract_id: uuid.UUID,
+        version: int,
+        approval_status: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="contract.approved",
+            payload={
+                "dataset_id": str(dataset_id),
+                "contract_id": str(contract_id),
+                "version": version,
+                "approval_status": approval_status,
+            },
+        )
+
+    def quarantine_replayed(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        entry_id: uuid.UUID,
+        replay_run_id: uuid.UUID,
+        attempt_count: int,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="quarantine.replayed",
+            payload={
+                "dataset_id": str(dataset_id),
+                "entry_id": str(entry_id),
+                "replay_run_id": str(replay_run_id),
+                "attempt_count": attempt_count,
+            },
+        )
+
+    def override_granted(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        report_id: uuid.UUID,
+        override_id: uuid.UUID,
+        authorising_identity: str,
+        expiry: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="override.granted",
+            payload={
+                "dataset_id": str(dataset_id),
+                "report_id": str(report_id),
+                "override_id": str(override_id),
+                "authorising_identity": authorising_identity,
+                "expiry": expiry,
+            },
+        )
+
+    def override_expired(
+        self,
+        *,
+        actor: str,
+        dataset_id: uuid.UUID,
+        override_id: uuid.UUID,
+        report_id: uuid.UUID,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="override.expired",
+            payload={
+                "dataset_id": str(dataset_id),
+                "override_id": str(override_id),
+                "report_id": str(report_id),
+            },
+        )

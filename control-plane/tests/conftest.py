@@ -164,6 +164,69 @@ def process_run(app):
     return _process
 
 
+@pytest.fixture()
+def simulated_quality_gateway():
+    """In-memory quality gateway for offline gate/contract/quarantine tests."""
+    from datafoundry.controlplane.quality.gateway import SimulatedQualityGateway
+
+    return SimulatedQualityGateway()
+
+
+@pytest.fixture()
+def dataset(session_factory: sessionmaker[Session]):
+    """Create a minimal Dataset row (feature 003 stub) for quality tests.
+
+    Returns a callable ``dataset(name, layer)`` persisting a Dataset and
+    returning its id.
+    """
+
+    def _make(name: str = "customer", layer: str = "silver"):
+        from datafoundry.controlplane.db.models import Dataset
+
+        with session_factory() as sess:
+            row = Dataset(
+                name=name,
+                layer=layer,
+                schema_definition={"customer_id": {"type": "integer", "nullable": False}},
+                owner_identity="user@acme.com",
+                classification="internal",
+            )
+            sess.add(row)
+            sess.commit()
+            return row.id
+
+    return _make
+
+
+@pytest.fixture()
+def process_quality_run(app):
+    """Drive the quality engine explicitly (tests use a no-op dispatcher).
+
+    Returns a callable ``process_quality_run(gate_id, run_id, batch_id, env)``
+    executing the gate against the app's quality gateway.
+    """
+
+    def _process(gate_id, run_id, batch_id, environment="production"):
+        from datafoundry.controlplane.quality.engine import run_gate
+
+        session = app.state.sessionmaker()
+        try:
+            report = run_gate(
+                session,
+                gateway=app.state.quality_gateway,
+                gate_id=gate_id,
+                run_id=run_id,
+                batch_id=batch_id,
+                environment=environment,
+            )
+            session.commit()
+            return report
+        finally:
+            session.close()
+
+    return _process
+
+
 def load_example(name: str) -> dict:
     import yaml
 
