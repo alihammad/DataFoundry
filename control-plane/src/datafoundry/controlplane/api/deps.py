@@ -45,3 +45,8 @@ def get_dispatcher(request: Request) -> Callable[[Any], None]:
 def get_cloud_gateway(request: Request) -> Any:
     """Cloud gateway for init jobs / health checks (simulated in dev/tests)."""
     return request.app.state.gateway
+
+
+def get_quality_gateway(request: Request) -> Any:
+    """Quality gateway for gate/contract/quarantine evaluation (simulated)."""
+    return request.app.state.quality_gateway

@@ -161,6 +161,12 @@ def _load_test_data(
     # freshness/volume implementations (T016/T017 replace these).
     context["stale"] = _has_fault(gateway, dataset_id, "stale")
     context["volume_anomaly"] = _has_fault(gateway, dataset_id, "volume")
+    # Referential-integrity tests need the reference key set; the simulated
+    # gateway exposes it via ``reference_values`` (live adapters join the
+    # reference zone).
+    reference_values = getattr(gateway, "reference_values", None)
+    if reference_values:
+        context["reference_values"] = reference_values
     return table, context
 
 

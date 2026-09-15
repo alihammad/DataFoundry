@@ -55,6 +55,8 @@ class SimulatedQualityGateway(QualityGateway):
         self._tables: dict[str, QualityTable] = {}
         self._quarantine: dict[str, dict[str, Any]] = {}
         self._faults: set[str] = set()  # test hooks
+        #: Reference key set for referential-integrity tests (offline).
+        self.reference_values: set[Any] | None = None
 
     # -- test hooks ---------------------------------------------------------
 
@@ -119,3 +121,14 @@ class SimulatedQualityGateway(QualityGateway):
 def build_fixture_schema(columns: dict[str, pa.DataType]) -> pa.Schema:
     """Build a PyArrow schema from a ``{column: type}`` map."""
     return pa.schema([pa.field(name, dtype) for name, dtype in columns.items()])
+
+
+def build_quality_gateway(settings: Any) -> QualityGateway:
+    """Build the quality gateway for the app (simulated in dev/tests).
+
+    MVP uses the in-memory :class:`SimulatedQualityGateway` so every
+    gate/contract/quarantine/override/score path is exercisable offline (no
+    docker/terraform/database). Live S3/GCS adapters read the same zone
+    prefixes via the feature 001 ``CloudGateway`` and are added later.
+    """
+    return SimulatedQualityGateway()
