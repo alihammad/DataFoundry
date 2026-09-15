@@ -184,9 +184,9 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 **Purpose**: Alerting, GitOps versioning, cloud-independence verification, and final validation
 
-- [ ] T047 [P] Implement alerting on gate failures, contract violations, warning-threshold breaches through the platform's notification channels (FR-016): structured alert with failing test detail, redacted of secrets — in `control-plane/src/datafoundry/controlplane/quality/` (reuse observability/audit)
-- [ ] T048 [P] Implement GitOps versioning for test/gate/contract definitions through the existing `config/gitops.py` pattern (FR-018); test-first support: contracts/tests definable before transformation exists (FR-020) — in `control-plane/src/datafoundry/controlplane/config/quality_schema.py` and `config/gitops.py`
-- [ ] T049 [P] Verify cloud-independence of gate outcomes (FR-019, SC-008): identical gate outcomes for identical data/config on both clouds — extend `scripts/parity_checklist.py` with a quality parity check (mirroring feature 002 SC-003 pattern)
-- [ ] T050 [P] Run full test suite + ruff clean: `control-plane/.venv/bin/python -m pytest` (all unit + contract + integration) and `ruff check` + `ruff format` clean across control-plane + cli; verify `alembic upgrade head --sql` offline SQL — final gate.
+- [X] T047 [P] Implement alerting on gate failures, contract violations, warning-threshold breaches through the platform's notification channels (FR-016): structured alert with failing test detail, redacted of secrets — in `control-plane/src/datafoundry/controlplane/quality/` (reuse observability/audit)
+- [X] T048 [P] Implement GitOps versioning for test/gate/contract definitions through the existing `config/gitops.py` pattern (FR-018); test-first support: contracts/tests definable before transformation exists (FR-020) — in `control-plane/src/datafoundry/controlplane/config/quality_schema.py` and `config/gitops.py`
+- [X] T049 [P] Verify cloud-independence of gate outcomes (FR-019, SC-008): identical gate outcomes for identical data/config on both clouds — extend `scripts/parity_checklist.py` with a quality parity check (mirroring feature 002 SC-003 pattern)
+- [X] T050 [P] Run full test suite + ruff clean: `control-plane/.venv/bin/python -m pytest` (all unit + contract + integration) and `ruff check` + `ruff format` clean across control-plane + cli; verify `alembic upgrade head --sql` offline SQL — final gate.
 
 **Checkpoint (Final)**: Feature 004 complete — all 6 user stories independently testable, ruff clean, tests pass, cloud-independent gate outcomes verified
