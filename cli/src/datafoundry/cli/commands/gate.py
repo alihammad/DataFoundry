@@ -72,13 +72,20 @@ def gate_run(
 
 @app.command("report")
 def gate_report(
-    gate_id: str = typer.Argument(..., help="Gate id"),
     report_id: str = typer.Argument(..., help="Report id"),
+    gate_id: str = typer.Option(None, "--gate", help="Gate id (optional)"),
     api_url: str = typer.Option(None, "--api-url", help="Control-plane base URL"),
 ) -> None:
-    """Show a gate report with per-test results (US1-AC3, FR-015)."""
+    """Show a gate report with per-test results (US1-AC3, FR-015).
+
+    With ``--gate`` uses ``GET /gates/{gate_id}/reports/{report_id}``; without
+    it uses the drill-down ``GET /reports/{report_id}`` (US6-AC2, FR-015).
+    """
     with ApiClient(base_url=api_url) as client:
-        response = client.get(f"/gates/{gate_id}/reports/{report_id}")
+        if gate_id:
+            response = client.get(f"/gates/{gate_id}/reports/{report_id}")
+        else:
+            response = client.get(f"/reports/{report_id}")
     if response.status_code != 200:
         error_console.print(ApiClient.problem_summary(response))
         raise typer.Exit(code=2)
@@ -88,6 +95,13 @@ def gate_report(
         f"overall={data['overall_status']} config_version={data['config_version']}"
     )
     _render_results(data["results"])
+    if data.get("quarantine_entries"):
+        console.print("[bold]quarantine entries:[/bold]")
+        for entry in data["quarantine_entries"]:
+            console.print(
+                f"  {entry['entry_id']} {entry['failure_reason']} "
+                f"(failed_test={entry.get('failed_test') or 'n/a'})"
+            )
     raise typer.Exit(code=0)
 
 
