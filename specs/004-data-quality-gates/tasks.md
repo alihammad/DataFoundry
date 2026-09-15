@@ -146,14 +146,14 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T037 [P] [US5] Contract tests for `POST /reports/{id}/override` (201 active; 422 incomplete; 403 unauthorised + recorded), `GET /datasets/{id}/overrides` (audit history) per contracts/quality-api.md §5 — in `control-plane/tests/contract/test_overrides_api.py`
-- [ ] T038 [P] [US5] Integration test for quickstart Scenario 4: block gate, grant override, verify promotion proceeds + auditable; incomplete override rejected; expired override grants no permission — in `control-plane/tests/integration/test_override_flow.py`
+- [X] T037 [P] [US5] Contract tests for `POST /reports/{id}/override` (201 active; 422 incomplete; 403 unauthorised + recorded), `GET /datasets/{id}/overrides` (audit history) per contracts/quality-api.md §5 — in `control-plane/tests/contract/test_overrides_api.py`
+- [X] T038 [P] [US5] Integration test for quickstart Scenario 4: block gate, grant override, verify promotion proceeds + auditable; incomplete override rejected; expired override grants no permission — in `control-plane/tests/integration/test_override_flow.py`
 
 ### Implementation for User Story 5
 
-- [ ] T039 [P] [US5] Implement override module per research R-06: validate required fields (authorisation, reason, expiry, identity, timestamp, impact assessment), reject incomplete overrides, scope to the specific blocked run, auto-expire, permanent audit (FR-011, FR-012) — in `control-plane/src/datafoundry/controlplane/quality/override.py`
-- [ ] T040 [US5] Implement the overrides API router per contracts/quality-api.md §5: `POST /reports/{id}/override`, `GET /datasets/{id}/id/overrides`; authorisation check; audit writes — in `control-plane/src/datafoundry/controlplane/api/overrides.py`
-- [ ] T041 [US5] Implement CLI `datafoundry override grant` command per quickstart Scenario 4 — in `cli/src/datafoundry/cli/commands/override.py`
+- [X] T039 [P] [US5] Implement override module per research R-06: validate required fields (authorisation, reason, expiry, identity, timestamp, impact assessment), reject incomplete overrides, scope to the specific blocked run, auto-expire, permanent audit (FR-011, FR-012) — in `control-plane/src/datafoundry/controlplane/quality/override.py`
+- [X] T040 [US5] Implement the overrides API router per contracts/quality-api.md §5: `POST /reports/{id}/override`, `GET /datasets/{id}/id/overrides`; authorisation check; audit writes — in `control-plane/src/datafoundry/controlplane/api/overrides.py`
+- [X] T041 [US5] Implement CLI `datafoundry override grant` command per quickstart Scenario 4 — in `cli/src/datafoundry/cli/commands/override.py`
 
 **Checkpoint**: US1–US5 all work — overrides are the only path past a failed gate, fully audited and scoped to the granted run
 
