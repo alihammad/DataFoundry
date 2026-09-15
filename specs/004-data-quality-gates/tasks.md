@@ -167,14 +167,14 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T042 [P] [US6] Contract tests for `GET /datasets/{id}/quality` (score + history), `GET /datasets/{id}/quality/history` (per-run results), `GET /reports/{id}` (drill-down to failing test + failed records + quarantine) per contracts/quality-api.md §6 — in `control-plane/tests/contract/test_quality_api.py`
-- [ ] T043 [P] [US6] Integration test for quickstart Scenario 5: run pipeline with varying outcomes, verify score + history reflect runs, drill into failed run reaches failing test + failed records + quarantine — in `control-plane/tests/integration/test_quality_observability_flow.py`
+- [X] T042 [P] [US6] Contract tests for `GET /datasets/{id}/quality` (score + history), `GET /datasets/{id}/quality/history` (per-run results), `GET /reports/{id}` (drill-down to failing test + failed records + quarantine) per contracts/quality-api.md §6 — in `control-plane/tests/contract/test_quality_api.py`
+- [X] T043 [P] [US6] Integration test for quickstart Scenario 5: run pipeline with varying outcomes, verify score + history reflect runs, drill into failed run reaches failing test + failed records + quarantine — in `control-plane/tests/integration/test_quality_observability_flow.py`
 
 ### Implementation for User Story 6
 
-- [ ] T044 [P] [US6] Implement quality score module per research R-07: deterministic formula over recent gate results (0–100), history computation, drill-down data (FR-014, FR-015) — in `control-plane/src/datafoundry/controlplane/quality/score.py`
-- [ ] T045 [US6] Implement the quality API router per contracts/quality-api.md §6: `GET /datasets/{id}/quality`, `GET /datasets/{id}/quality/history`, `GET /reports/{id}` (drill-down) — in `control-plane/src/datafoundry/controlplane/api/quality.py` (note: path is `control-plane/src/datafoundry/controlplane/api/quality.py`)
-- [ ] T046 [US6] Implement CLI `datafoundry quality get/history` and `datafoundry gate report` drill-down per quickstart Scenario 5 — in `cli/src/datafoundry/cli/commands/gate.py`
+- [X] T044 [P] [US6] Implement quality score module per research R-07: deterministic formula over recent gate results (0–100), history computation, drill-down data (FR-014, FR-015) — in `control-plane/src/datafoundry/controlplane/quality/score.py`
+- [X] T045 [US6] Implement the quality API router per contracts/quality-api.md §6: `GET /datasets/{id}/quality`, `GET /datasets/{id}/quality/history`, `GET /reports/{id}` (drill-down) — in `control-plane/src/datafoundry/controlplane/api/quality.py` (note: path is `control-plane/src/datafoundry/controlplane/api/quality.py`)
+- [X] T046 [US6] Implement CLI `datafoundry quality get/history` and `datafoundry gate report` drill-down per quickstart Scenario 5 — in `cli/src/datafoundry/cli/commands/gate.py`
 
 **Checkpoint**: US1–US6 all work — quality is observable with scores, history, and drill-down to failing records and quarantine
 
