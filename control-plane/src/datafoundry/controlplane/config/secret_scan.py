@@ -82,6 +82,9 @@ _ENTROPY_ALLOWLISTED_FIELDS = frozenset(
         "approval_ref",
         "trace_id",
         "span_id",
+        # SQL expressions / queries are legitimate long strings (quality tests).
+        "sql",
+        "expression",
     }
 )
 

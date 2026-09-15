@@ -112,6 +112,99 @@ class HealthStatus(enum.StrEnum):
     unknown = "unknown"
 
 
+# -- quality enums (feature 004) ---------------------------------------------
+
+
+class LayerTransition(enum.StrEnum):
+    ingestion_to_bronze = "ingestion_to_bronze"
+    bronze_to_silver = "bronze_to_silver"
+    silver_to_gold = "silver_to_gold"
+    gold_to_consumable = "gold_to_consumable"
+
+
+class TestCategory(enum.StrEnum):
+    schema = "schema"
+    type = "type"
+    nullability = "nullability"
+    uniqueness = "uniqueness"
+    completeness = "completeness"
+    validity = "validity"
+    referential_integrity = "referential_integrity"
+    reconciliation = "reconciliation"
+    freshness = "freshness"
+    volume = "volume"
+    distribution = "distribution"
+    business_rule = "business_rule"
+    security = "security"
+    contract = "contract"
+    transformation = "transformation"
+    statistical = "statistical"
+
+
+class TestSeverity(enum.StrEnum):
+    critical = "critical"
+    error = "error"
+    warning = "warning"
+    informational = "informational"
+
+
+class TestResultStatus(enum.StrEnum):
+    passed = "passed"
+    failed = "failed"
+    warning = "warning"
+    error = "error"
+    not_run = "not_run"
+
+
+class GateDecision(enum.StrEnum):
+    promote = "promote"
+    block = "block"
+
+
+class OverallStatus(enum.StrEnum):
+    passed = "passed"
+    failed = "failed"
+    warning = "warning"
+    error = "error"
+
+
+class ContractOrigin(enum.StrEnum):
+    explicit = "explicit"
+    inferred = "inferred"
+
+
+class ApprovalStatus(enum.StrEnum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class ViolationClassification(enum.StrEnum):
+    breaking = "breaking"
+    non_breaking = "non_breaking"
+    warning = "warning"
+
+
+class OverrideStatus(enum.StrEnum):
+    active = "active"
+    expired = "expired"
+    revoked = "revoked"
+
+
+class DatasetLayer(enum.StrEnum):
+    bronze = "bronze"
+    silver = "silver"
+    gold = "gold"
+
+
+class DataClassification(enum.StrEnum):
+    public = "public"
+    internal = "internal"
+    confidential = "confidential"
+    restricted = "restricted"
+    highly_restricted = "highly_restricted"
+
+
 # -- entities ------------------------------------------------------------------
 
 
@@ -318,20 +411,373 @@ class AuditRecord(Base):
     platform: Mapped[Platform | None] = relationship(back_populates="audit_records")
 
 
+# -- feature 003 Dataset (stub) ----------------------------------------------
+#
+# Feature 003 (medallion-processing) owns the full Dataset entity. This minimal
+# model provides the FK target that feature 004 quality entities reference and
+# that the test harness seeds; feature 003 will extend it with the remaining
+# fields (platform_id, steward, domain, description, quality_score,
+# refresh_metadata) in its own migration.
+
+
+class Dataset(Base):
+    __tablename__ = "datasets"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_dataset_name"),
+        CheckConstraint(
+            "length(name) BETWEEN 3 AND 63 AND name = lower(name) "
+            "AND substr(name, 1, 1) BETWEEN 'a' AND 'z'",
+            name="ck_dataset_name_format",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    layer: Mapped[DatasetLayer] = mapped_column(
+        Enum(DatasetLayer, name="dataset_layer"), nullable=False
+    )
+    schema_definition: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    classification: Mapped[DataClassification] = mapped_column(
+        Enum(DataClassification, name="data_classification"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    gates: Mapped[list[QualityGate]] = relationship(back_populates="dataset")
+    contracts: Mapped[list[DataContract]] = relationship(back_populates="dataset")
+    quarantine_entries: Mapped[list[QuarantineEntry]] = relationship(back_populates="dataset")
+    overrides: Mapped[list[GateOverride]] = relationship(back_populates="dataset")
+    scores: Mapped[list[QualityScore]] = relationship(back_populates="dataset")
+
+
+# -- feature 004 quality entities ---------------------------------------------
+
+
+class QualityGate(Base):
+    """The test set bound to a layer transition for a dataset (FR-001)."""
+
+    __tablename__ = "quality_gates"
+    __table_args__ = (
+        UniqueConstraint(
+            "dataset_id", "transition", "config_version", name="uq_gate_version_per_dataset"
+        ),
+        CheckConstraint("config_version >= 1", name="ck_gate_config_version_positive"),
+        CheckConstraint("length(config_hash) = 64", name="ck_gate_config_hash_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_gate_dataset"), nullable=False
+    )
+    transition: Mapped[LayerTransition] = mapped_column(
+        Enum(LayerTransition, name="layer_transition"), nullable=False
+    )
+    config_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Canonical gate definition — secret-scanned before persist (SC-007).
+    config_yaml: Mapped[str] = mapped_column(Text, nullable=False)
+    config_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    environment_overrides: Mapped[dict[str, Any]] = mapped_column(
+        JSONVariant, nullable=False, default=dict
+    )
+    created_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    dataset: Mapped[Dataset] = relationship(back_populates="gates")
+    tests: Mapped[list[QualityTest]] = relationship(
+        back_populates="gate", order_by="QualityTest.name"
+    )
+    reports: Mapped[list[GateReport]] = relationship(back_populates="gate")
+
+
+class QualityTest(Base):
+    """A single quality rule (spec Key Entity, FR-003/FR-004)."""
+
+    __tablename__ = "quality_tests"
+    __table_args__ = (UniqueConstraint("gate_id", "name", name="uq_test_name_per_gate"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    gate_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("quality_gates.id", name="fk_test_gate"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    category: Mapped[TestCategory] = mapped_column(
+        Enum(TestCategory, name="test_category"), nullable=False
+    )
+    severity: Mapped[TestSeverity] = mapped_column(
+        Enum(TestSeverity, name="test_severity"), nullable=False
+    )
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    gate: Mapped[QualityGate] = relationship(back_populates="tests")
+    results: Mapped[list[TestResult]] = relationship(back_populates="test")
+
+
+class TestResult(Base):
+    """One test's outcome in one run (spec Key Entity, FR-013)."""
+
+    __tablename__ = "test_results"
+    __table_args__ = (
+        UniqueConstraint("test_id", "report_id", name="uq_result_per_test_report"),
+        CheckConstraint("failed_record_count >= 0", name="ck_result_failed_count_non_negative"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    test_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("quality_tests.id", name="fk_result_test"), nullable=False
+    )
+    report_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("gate_reports.id", name="fk_result_report"), nullable=False
+    )
+    status: Mapped[TestResultStatus] = mapped_column(
+        Enum(TestResultStatus, name="test_result_status"), nullable=False
+    )
+    measured_value: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    failed_record_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_record_refs: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ran_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    test: Mapped[QualityTest] = relationship(back_populates="results")
+    report: Mapped[GateReport] = relationship(back_populates="results")
+
+
+class GateReport(Base):
+    """The aggregate decision for a run (spec Key Entity, FR-001/FR-013)."""
+
+    __tablename__ = "gate_reports"
+    __table_args__ = (
+        UniqueConstraint("gate_id", "run_id", name="uq_report_per_gate_run"),
+        CheckConstraint("config_version >= 1", name="ck_report_config_version_positive"),
+        CheckConstraint("tests_run >= 0", name="ck_report_tests_run_non_negative"),
+        CheckConstraint("tests_passed >= 0", name="ck_report_tests_passed_non_negative"),
+        CheckConstraint("tests_warned >= 0", name="ck_report_tests_warned_non_negative"),
+        CheckConstraint("tests_failed >= 0", name="ck_report_tests_failed_non_negative"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    gate_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("quality_gates.id", name="fk_report_gate"), nullable=False
+    )
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_report_dataset"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    config_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    decision: Mapped[GateDecision] = mapped_column(
+        Enum(GateDecision, name="gate_decision"), nullable=False
+    )
+    overall_status: Mapped[OverallStatus] = mapped_column(
+        Enum(OverallStatus, name="overall_status"), nullable=False
+    )
+    tests_run: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tests_passed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tests_warned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tests_failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quality_score_contribution: Mapped[float | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    gate: Mapped[QualityGate] = relationship(back_populates="reports")
+    dataset: Mapped[Dataset] = relationship()
+    results: Mapped[list[TestResult]] = relationship(back_populates="report")
+    overrides: Mapped[list[GateOverride]] = relationship(back_populates="report")
+
+
+class DataContract(Base):
+    """Schema agreement for a dataset (spec Key Entity, FR-006/FR-007)."""
+
+    __tablename__ = "data_contracts"
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "version", name="uq_contract_version_per_dataset"),
+        CheckConstraint("version >= 1", name="ck_contract_version_positive"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_contract_dataset"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    schema_definition: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    origin: Mapped[ContractOrigin] = mapped_column(
+        Enum(ContractOrigin, name="contract_origin"), nullable=False
+    )
+    approval_status: Mapped[ApprovalStatus] = mapped_column(
+        Enum(ApprovalStatus, name="approval_status"),
+        nullable=False,
+        default=ApprovalStatus.pending,
+    )
+    created_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    dataset: Mapped[Dataset] = relationship(back_populates="contracts")
+    violations: Mapped[list[ContractViolation]] = relationship(back_populates="contract")
+
+
+class ContractViolation(Base):
+    """A detected deviation from a contract (spec Key Entity, FR-006)."""
+
+    __tablename__ = "contract_violations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    contract_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("data_contracts.id", name="fk_violation_contract"), nullable=False
+    )
+    batch_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    change_description: Mapped[str] = mapped_column(Text, nullable=False)
+    classification: Mapped[ViolationClassification] = mapped_column(
+        Enum(ViolationClassification, name="violation_classification"), nullable=False
+    )
+    action_taken: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    contract: Mapped[DataContract] = relationship(back_populates="violations")
+
+
+class QuarantineEntry(Base):
+    """A rejected record/file with full failure context (spec Key Entity)."""
+
+    __tablename__ = "quarantine_entries"
+    __table_args__ = (
+        Index("ix_quarantine_dataset_quarantined", "dataset_id", "quarantined_at"),
+        CheckConstraint("attempt_count >= 1", name="ck_quarantine_attempt_positive"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_quarantine_dataset"), nullable=False
+    )
+    batch_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    payload_ref: Mapped[str] = mapped_column(String(512), nullable=False)
+    failure_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    failed_test: Mapped[str | None] = mapped_column(String(63), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    replay_eligible: Mapped[bool] = mapped_column(nullable=False, default=True)
+    retention_expiry: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    quarantined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    #: Secret-scanned JSON payload (pipeline id, source, error details).
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False, default=dict)
+
+    dataset: Mapped[Dataset] = relationship(back_populates="quarantine_entries")
+
+
+class GateOverride(Base):
+    """A granted bypass of a blocked gate (spec Key Entity, FR-011/FR-012)."""
+
+    __tablename__ = "gate_overrides"
+    __table_args__ = (Index("ix_override_report", "report_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    report_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("gate_reports.id", name="fk_override_report"), nullable=False
+    )
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_override_dataset"), nullable=False
+    )
+    authorising_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    expiry: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    #: Secret-scanned impact assessment (SC-007).
+    impact_assessment: Mapped[str] = mapped_column(Text, nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    status: Mapped[OverrideStatus] = mapped_column(
+        Enum(OverrideStatus, name="override_status"),
+        nullable=False,
+        default=OverrideStatus.active,
+    )
+
+    report: Mapped[GateReport] = relationship(back_populates="overrides")
+    dataset: Mapped[Dataset] = relationship(back_populates="overrides")
+
+
+class QualityScore(Base):
+    """A dataset's current quality measure (spec Key Entity, FR-014)."""
+
+    __tablename__ = "quality_scores"
+    __table_args__ = (CheckConstraint("score >= 0 AND score <= 100", name="ck_score_range"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_score_dataset"), nullable=False
+    )
+    score: Mapped[float] = mapped_column(nullable=False)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    history_json: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+
+    dataset: Mapped[Dataset] = relationship(back_populates="scores")
+
+
 __all__ = [
+    "ApprovalStatus",
     "AuditRecord",
     "Base",
     "ConfigSource",
+    "ContractOrigin",
+    "ContractViolation",
+    "DataClassification",
+    "DataContract",
+    "Dataset",
+    "DatasetLayer",
     "DeploymentRun",
     "DeploymentStep",
     "EnvironmentType",
+    "GateDecision",
+    "GateOverride",
+    "GateReport",
     "HealthCheckResult",
     "HealthStatus",
+    "LayerTransition",
+    "OverallStatus",
+    "OverrideStatus",
     "Platform",
     "PlatformConfigVersion",
     "PlatformStatus",
     "Provider",
+    "QualityGate",
+    "QualityScore",
+    "QualityTest",
+    "QuarantineEntry",
     "RunStatus",
     "RunType",
     "StepStatus",
+    "TestCategory",
+    "TestResult",
+    "TestResultStatus",
+    "TestSeverity",
+    "ViolationClassification",
 ]
