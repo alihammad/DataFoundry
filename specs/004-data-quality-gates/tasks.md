@@ -82,15 +82,15 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T021 [P] [US2] Contract tests for `POST /datasets/{id}/contracts/register` (201 explicit approved; 422 invalid schema), `POST /datasets/{id}/contracts/infer` (201 pending), `POST /contracts/{id}/approve` (200 approved; owner authorisation), `GET /datasets/{id}/contracts` (list + violations) per contracts/quality-api.md §3 — in `control-plane/tests/contract/test_contracts_api.py`
-- [ ] T022 [P] [US2] Integration test for quickstart Scenario 2: register explicit contract, mutate column type, verify `breaking` + blocked; infer, approve, verify it gates promotion — in `control-plane/tests/integration/test_contract_validation_flow.py`
+- [X] T021 [P] [US2] Contract tests for `POST /datasets/{id}/contracts/register` (201 explicit approved; 422 invalid schema), `POST /datasets/{id}/contracts/infer` (201 pending), `POST /contracts/{id}/approve` (200 approved; owner authorisation), `GET /datasets/{id}/contracts` (list + violations) per contracts/quality-api.md §3 — in `control-plane/tests/contract/test_contracts_api.py`
+- [X] T022 [P] [US2] Integration test for quickstart Scenario 2: register explicit contract, mutate column type, verify `breaking` + blocked; infer, approve, verify it gates promotion — in `control-plane/tests/integration/test_contract_validation_flow.py`
 
 ### Implementation for User Story 2
 
-- [ ] T023 [P] [US2] Implement contract validation module per research R-04: compare observed schema against recorded contract, classify each difference breaking/non-breaking/warning per the classification table; breaking → block promotion (FR-006, SC-007) — in `control-plane/src/datafoundry/controlplane/quality/contracts/validate.py`
-- [ ] T024 [P] [US2] Implement contract inference per research R-04: generate `DataContract` from observed schema on first successful ingestion, mark `origin=inferred`, `approval_status=pending` (never auto-approved — constitution V, FR-007) — in `control-plane/src/datafoundry/controlplane/quality/contracts/infer.py`
-- [ ] T025 [US2] Implement the contracts API router per contracts/quality-api.md §3: `POST /datasets/{id}/contracts/register`, `POST /datasets/{id}/contracts/infer`, `POST /contracts/{id}/approve`, `GET /datasets/{id}/contracts`; owner authorisation on approve; audit writes — in `control-plane/src/datafoundry/controlplane/api/contracts.py`
-- [ ] T026 [US2] Implement CLI `datafoundry contract register/infer/approve` commands per quickstart Scenario 2 — in `cli/src/datafoundry/cli/commands/contract.py`
+- [X] T023 [P] [US2] Implement contract validation module per research R-04: compare observed schema against recorded contract, classify each difference breaking/non-breaking/warning per the classification table; breaking → block promotion (FR-006, SC-007) — in `control-plane/src/datafoundry/controlplane/quality/contracts/validate.py`
+- [X] T024 [P] [US2] Implement contract inference per research R-04: generate `DataContract` from observed schema on first successful ingestion, mark `origin=inferred`, `approval_status=pending` (never auto-approved — constitution V, FR-007) — in `control-plane/src/datafoundry/controlplane/quality/contracts/infer.py`
+- [X] T025 [US2] Implement the contracts API router per contracts/quality-api.md §3: `POST /datasets/{id}/contracts/register`, `POST /datasets/{id}/contracts/infer`, `POST /contracts/{id}/approve`, `GET /datasets/{id}/contracts`; owner authorisation on approve; audit writes — in `control-plane/src/datafoundry/controlplane/api/contracts.py`
+- [X] T026 [US2] Implement CLI `datafoundry contract register/infer/approve` commands per quickstart Scenario 2 — in `cli/src/datafoundry/cli/commands/contract.py`
 
 **Checkpoint**: US1 + US2 both work independently — contracts validated at ingestion with breaking changes blocking promotion and inferred contracts requiring approval
 

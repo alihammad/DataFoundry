@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 
 import typer
+from datafoundry.cli.commands import contract as contract_cmd
 from datafoundry.cli.commands import deploy as deploy_cmd
 from datafoundry.cli.commands import destroy as destroy_cmd
 from datafoundry.cli.commands import export as export_cmd
@@ -34,6 +35,7 @@ app.command()(status_cmd.status)
 app.command()(export_cmd.export)
 app.command()(destroy_cmd.destroy)
 app.add_typer(gate_cmd.app, name="gate")
+app.add_typer(contract_cmd.app, name="contract")
 
 
 def main() -> None:  # pragma: no cover - console entry point

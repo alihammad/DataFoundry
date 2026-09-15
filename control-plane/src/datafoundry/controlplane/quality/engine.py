@@ -59,6 +59,9 @@ def run_gate(
     ).all()
 
     layer = _target_layer(gate.transition.value)
+    # Approved contract schema for the dataset (drives the ``contract`` test
+    # category, FR-006/FR-007). Only approved contracts gate promotion.
+    contract_schema = _approved_contract_schema(session, gate.dataset_id)
     outcomes: list[GateTestOutcome] = []
     results: list[TestResult] = []
 
@@ -71,6 +74,8 @@ def run_gate(
             parameters=dict(test.parameters or {}),
         )
         data, context = _load_test_data(gateway, gate.dataset_id, layer, test, batch_id)
+        if test.category.value == "contract" and contract_schema is not None:
+            context["contract_schema"] = contract_schema
         result = impl.run(data, **context)
         outcomes.append(
             GateTestOutcome(
@@ -127,6 +132,28 @@ def _target_layer(transition: str) -> str:
         "silver_to_gold": "gold",
         "gold_to_consumable": "gold",
     }[transition]
+
+
+def _approved_contract_schema(session: Session, dataset_id: uuid.UUID) -> dict[str, Any] | None:
+    """Return the latest approved contract schema for a dataset, if any.
+
+    Only approved contracts gate promotion (FR-007 rule in data-model.md);
+    pending/rejected contracts do not.
+    """
+    from datafoundry.controlplane.db.models import ApprovalStatus, DataContract
+
+    contract = session.execute(
+        select(DataContract)
+        .where(
+            DataContract.dataset_id == dataset_id,
+            DataContract.approval_status == ApprovalStatus.approved,
+        )
+        .order_by(DataContract.version.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if contract is None:
+        return None
+    return dict(contract.schema_definition or {})
 
 
 def _load_test_data(
