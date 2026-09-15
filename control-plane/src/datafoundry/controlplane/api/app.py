@@ -30,9 +30,11 @@ def _wire_runtime(app: FastAPI, settings: Settings) -> None:
     """
     from datafoundry.controlplane.db.session import get_sessionmaker
     from datafoundry.controlplane.engine.gateway import build_gateway
+    from datafoundry.controlplane.quality.gateway import build_quality_gateway
 
     app.state.sessionmaker = get_sessionmaker()
     app.state.gateway = build_gateway(settings)
+    app.state.quality_gateway = build_quality_gateway(settings)
 
     def _dispatch(run_id: uuid.UUID) -> None:
         def _process() -> None:
@@ -121,6 +123,18 @@ def _register_routers(api_router: APIRouter) -> None:
         from datafoundry.controlplane.api import health as health_api
 
         api_router.include_router(health_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import gates as gates_api
+
+        api_router.include_router(gates_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import tests as tests_api
+
+        api_router.include_router(tests_api.router)
     except ImportError:
         pass
 

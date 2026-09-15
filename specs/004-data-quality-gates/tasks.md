@@ -59,16 +59,16 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T014 [P] [US1] Contract tests for `POST /datasets/{id}/gates/{transition}` (201 with gate_id/config_version; 422 all-errors incl. unknown category, invalid severity, no CRITICAL/ERROR test, secret-scan hit), `GET /datasets/{id}/gates/{transition}` (config_yaml/config_hash), `POST /gates/{id}/run` (promote/block decision, per-test results), `GET /gates/{id}/reports/{report_id}` per contracts/quality-api.md §1 — in `control-plane/tests/contract/test_gates_api.py`
-- [ ] T015 [P] [US1] Integration test for quickstart Scenario 1: define gate, run against batch with duplicates, verify `block`, promotion refused, report lists failing test + count — in `control-plane/tests/integration/test_gate_block_flow.py`
+- [X] T014 [P] [US1] Contract tests for `POST /datasets/{id}/gates/{transition}` (201 with gate_id/config_version; 422 all-errors incl. unknown category, invalid severity, no CRITICAL/ERROR test, secret-scan hit), `GET /datasets/{id}/gates/{transition}` (config_yaml/config_hash), `POST /gates/{id}/run` (promote/block decision, per-test results), `GET /gates/{id}/reports/{report_id}` per contracts/quality-api.md §1 — in `control-plane/tests/contract/test_gates_api.py`
+- [X] T015 [P] [US1] Integration test for quickstart Scenario 1: define gate, run against batch with duplicates, verify `block`, promotion refused, report lists failing test + count — in `control-plane/tests/integration/test_gate_block_flow.py`
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Implement the record-level test categories (PyArrow): `schema`, `type`, `nullability`, `uniqueness`, `completeness`, `validity`, `referential_integrity`, `contract`, `transformation`, `security` — each returning status + failed-record count/refs (R-02) — in `control-plane/src/datafoundry/controlplane/quality/tests/categories.py`
-- [ ] T017 [P] [US1] Implement the SQL-based test categories (DuckDB): `reconciliation`, `distribution`, `business_rule`, `volume`, `freshness`, `statistical` — each returning status + measured value (R-02) — in `control-plane/src/datafoundry/controlplane/quality/tests/categories.py`
-- [ ] T018 [US1] Implement the gates API router per contracts/quality-api.md §1: `POST /datasets/{id}/gates/{transition}`, `GET /datasets/{id}/gates/{transition}`, `POST /gates/{id}/run`, `GET /gates/{id}/reports/{report_id}`; secret-scan on `config_yaml`; audit writes — in `control-plane/src/datafoundry/controlplane/api/gates.py`
-- [ ] T019 [US1] Implement the tests listing helper per contracts/quality-api.md §2: `GET /datasets/{id}/tests` — in `control-plane/src/datafoundry/controlplane/api/tests.py`
-- [ ] T020 [US1] Implement CLI `datafoundry gate set/run/report` commands (typer) per quickstart Scenario 1 — in `cli/src/datafoundry/cli/commands/gate.py`
+- [X] T016 [P] [US1] Implement the record-level test categories (PyArrow): `schema`, `type`, `nullability`, `uniqueness`, `completeness`, `validity`, `referential_integrity`, `contract`, `transformation`, `security` — each returning status + failed-record count/refs (R-02) — in `control-plane/src/datafoundry/controlplane/quality/tests/categories.py`
+- [X] T017 [P] [US1] Implement the SQL-based test categories (DuckDB): `reconciliation`, `distribution`, `business_rule`, `volume`, `freshness`, `statistical` — each returning status + measured value (R-02) — in `control-plane/src/datafoundry/controlplane/quality/tests/categories.py`
+- [X] T018 [US1] Implement the gates API router per contracts/quality-api.md §1: `POST /datasets/{id}/gates/{transition}`, `GET /datasets/{id}/gates/{transition}`, `POST /gates/{id}/run`, `GET /gates/{id}/reports/{report_id}`; secret-scan on `config_yaml`; audit writes — in `control-plane/src/datafoundry/controlplane/api/gates.py`
+- [X] T019 [US1] Implement the tests listing helper per contracts/quality-api.md §2: `GET /datasets/{id}/tests` — in `control-plane/src/datafoundry/controlplane/api/tests.py`
+- [X] T020 [US1] Implement CLI `datafoundry gate set/run/report` commands (typer) per quickstart Scenario 1 — in `cli/src/datafoundry/cli/commands/gate.py`
 
 **Checkpoint**: US1 fully functional — a gate blocks bad data at a layer transition with a fail-closed decision and a drillable report
 
