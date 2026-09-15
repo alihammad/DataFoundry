@@ -320,6 +320,90 @@ class TestGateReport:
         assert response.status_code == 404
 
 
+class TestEnvSeverityOverride:
+    """T033: per-environment severity via ``environment_overrides`` (FR-005).
+
+    The same test is WARNING in Development and CRITICAL in Production; with
+    identical failing data the Development run continues (promote) while the
+    Production run blocks. The override round-trips through config export.
+    """
+
+    def _define(self, app, client):
+        ds_id = _seed_dataset(app)
+        config = {
+            "transition": "bronze_to_silver",
+            "environment_overrides": {
+                "production": {"uniqueness_customer_id": "critical"},
+            },
+            "tests": [
+                {
+                    "name": "uniqueness_customer_id",
+                    "category": "uniqueness",
+                    "severity": "warning",
+                    "parameters": {"columns": ["customer_id"]},
+                },
+                {
+                    "name": "nullability_email",
+                    "category": "nullability",
+                    "severity": "critical",
+                    "parameters": {"columns": ["email"]},
+                },
+            ],
+        }
+        define = client.post(f"/api/v1/datasets/{ds_id}/gates/bronze_to_silver", json=config)
+        assert define.status_code == 201, define.text
+        return ds_id, define.json()["gate_id"]
+
+    def _seed_duplicates(self, app, ds_id):
+        _seed_table(
+            app,
+            ds_id,
+            [
+                {"customer_id": 1, "email": "a@x.com"},
+                {"customer_id": 1, "email": "b@x.com"},
+                {"customer_id": 2, "email": "c@x.com"},
+            ],
+        )
+
+    def test_development_continues_production_blocks(self, app, client):
+        ds_id, gate_id = self._define(app, client)
+        self._seed_duplicates(app, ds_id)
+
+        dev = client.post(
+            f"/api/v1/gates/{gate_id}/run",
+            json={
+                "run_id": str(uuid.uuid4()),
+                "batch_id": str(uuid.uuid4()),
+                "environment": "development",
+            },
+        )
+        assert dev.status_code == 200, dev.text
+        assert dev.json()["decision"] == "promote"
+        assert dev.json()["overall_status"] == "warning"
+        assert dev.json()["tests_failed"] == 1
+
+        prod = client.post(
+            f"/api/v1/gates/{gate_id}/run",
+            json={
+                "run_id": str(uuid.uuid4()),
+                "batch_id": str(uuid.uuid4()),
+                "environment": "production",
+            },
+        )
+        assert prod.status_code == 200, prod.text
+        assert prod.json()["decision"] == "block"
+        assert prod.json()["overall_status"] == "failed"
+        assert prod.json()["tests_failed"] == 1
+
+    def test_override_visible_in_config_export(self, app, client):
+        ds_id, _gate_id = self._define(app, client)
+        response = client.get(f"/api/v1/datasets/{ds_id}/gates/bronze_to_silver")
+        assert response.status_code == 200
+        assert "environment_overrides" in response.json()["config_yaml"]
+        assert "production" in response.json()["config_yaml"]
+        assert "uniqueness_customer_id" in response.json()["config_yaml"]
+
+
 class TestListTests:
     def test_list_tests(self, app, client):
         ds_id = _seed_dataset(app)

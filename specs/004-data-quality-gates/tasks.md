@@ -126,13 +126,13 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T033 [P] [US4] Contract tests for `POST /datasets/{id}/gates/{transition}` with `environment_overrides` (per-environment severity applied; Development vs Production different outcomes) per contracts/gate-config-schema.md — in `control-plane/tests/contract/test_gates_api.py`
-- [ ] T034 [P] [US4] Integration test for quickstart Scenario 1 env-override: same test WARNING in Development, CRITICAL in Production, identical data → Development continues, Production blocks — in `control-plane/tests/integration/test_env_severity_flow.py`
+- [X] T033 [P] [US4] Contract tests for `POST /datasets/{id}/gates/{transition}` with `environment_overrides` (per-environment severity applied; Development vs Production different outcomes) per contracts/gate-config-schema.md — in `control-plane/tests/contract/test_gates_api.py`
+- [X] T034 [P] [US4] Integration test for quickstart Scenario 1 env-override: same test WARNING in Development, CRITICAL in Production, identical data → Development continues, Production blocks — in `control-plane/tests/integration/test_env_severity_flow.py`
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Implement per-environment severity resolution in the gate engine: apply `environment_overrides` from `QualityGate.environment_overrides` to each test's effective severity before decision (FR-005); environment difference visible in config export — in `control-plane/src/datafoundry/controlplane/quality/gates/gate.py`
-- [ ] T036 [US4] Implement severity semantics in the decision function: CRITICAL/ERROR block by default, WARNING continues with notification, INFORMATIONAL records only (FR-004); WARNING/INFORMATIONAL failures recorded in the report but do not block — in `control-plane/src/datafoundry/controlplane/quality/gates/gate.py`
+- [X] T035 [US4] Implement per-environment severity resolution in the gate engine: apply `environment_overrides` from `QualityGate.environment_overrides` to each test's effective severity before decision (FR-005); environment difference visible in config export — in `control-plane/src/datafoundry/controlplane/quality/gates/gate.py`
+- [X] T036 [US4] Implement severity semantics in the decision function: CRITICAL/ERROR block by default, WARNING continues with notification, INFORMATIONAL records only (FR-004); WARNING/INFORMATIONAL failures recorded in the report but do not block — in `control-plane/src/datafoundry/controlplane/quality/gates/gate.py`
 
 **Checkpoint**: US1–US4 all work — gates are configurable per dataset and per environment with correct severity semantics
 
