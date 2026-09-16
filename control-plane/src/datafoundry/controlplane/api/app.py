@@ -204,6 +204,14 @@ def _register_routers(api_router: APIRouter) -> None:
         api_router.include_router(ingestion_configs_api.router)
     except ImportError:
         pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import (
+            ingestion_quarantine as ingestion_quarantine_api,
+        )
+
+        api_router.include_router(ingestion_quarantine_api.router)
+    except ImportError:
+        pass
 
 
 #: Module-level app for ``uvicorn datafoundry.controlplane.api.app:app``.

@@ -19,8 +19,10 @@ from datafoundry.controlplane.db.models import (
     IngestionPipeline,
     IngestionRun,
     IngestionRunStatus,
+    QuarantineRecord,
     RunOutcome,
     SourceContract,
+    TestSeverity,
 )
 from datafoundry.controlplane.ingestion.contract import infer_contract
 from datafoundry.controlplane.ingestion.gateway import LandingGateway, SourceGateway
@@ -118,7 +120,10 @@ def run_ingestion(
                     now=now,
                 )
             total_records += batch.record_count
-            outcomes.append(RunOutcome.success)
+            if batch.status == BatchStatus.quarantined:
+                outcomes.append(RunOutcome.partial)
+            else:
+                outcomes.append(RunOutcome.success)
         except Exception as exc:
             batch.status = BatchStatus.failed
             batch.metadata_json = {
@@ -134,6 +139,9 @@ def run_ingestion(
         run.status = IngestionRunStatus.failed
         run.outcome = RunOutcome.failed
         run.failure_reason = "one or more source objects failed to ingest"
+    elif RunOutcome.partial in outcomes:
+        run.status = IngestionRunStatus.succeeded
+        run.outcome = RunOutcome.partial
     else:
         run.status = IngestionRunStatus.succeeded
         run.outcome = RunOutcome.success
@@ -287,7 +295,7 @@ def _process_file_object(
         declared_checksum=file.get("checksum"),
     )
     if not validation["ok"]:
-        # Route to quarantine; batch is quarantined (partial success).
+        # Route to quarantine; batch is quarantined (partial success, US2-AC2).
         batch.status = BatchStatus.quarantined
         batch.record_count = 0
         batch.ingested_at = now
@@ -308,11 +316,59 @@ def _process_file_object(
             payload_ref=file_name,
             metadata=batch.metadata_json,
         )
+        _record_quarantine(
+            session,
+            pipeline=pipeline,
+            batch=batch,
+            source=source,
+            payload_ref=file_name,
+            failure_reason=validation["reason"],
+            failed_check=validation["failed_check"],
+            metadata=batch.metadata_json,
+        )
+        return
+
+    # Duplicate-file detection (FR-007, US2-AC3): identical checksum against
+    # previously ingested files for this source location -> recorded, not
+    # double-loaded.
+    checksum = file.get("checksum")
+    if checksum and _is_duplicate_checksum(session, source.id, checksum):
+        batch.status = BatchStatus.quarantined
+        batch.record_count = 0
+        batch.checksum = checksum
+        batch.ingested_at = now
+        batch.metadata_json = {
+            "source_object": file_name,
+            "source_system": source.name,
+            "ingestion_date": date_str,
+            "batch_id": str(batch.id),
+            "pipeline_id": str(pipeline.id),
+            "record_count": 0,
+            "status": "quarantined",
+            "failure_reason": "duplicate file delivery (identical checksum)",
+            "failed_check": "checksum",
+        }
+        landing.write_quarantine(
+            batch_id=str(batch.id),
+            source_object=file_name,
+            payload_ref=file_name,
+            metadata=batch.metadata_json,
+        )
+        _record_quarantine(
+            session,
+            pipeline=pipeline,
+            batch=batch,
+            source=source,
+            payload_ref=file_name,
+            failure_reason="duplicate file delivery (identical checksum)",
+            failed_check="checksum",
+            metadata=batch.metadata_json,
+        )
         return
 
     # Valid file: land with file-level metadata (FR-008).
     batch.record_count = 1
-    batch.checksum = file.get("checksum")
+    batch.checksum = checksum
     batch.ingested_at = now
     batch.status = BatchStatus.ingestion_validated
     batch.metadata_json = {
@@ -326,7 +382,7 @@ def _process_file_object(
         "file": {
             "name": file_name,
             "size": file.get("size"),
-            "checksum": file.get("checksum"),
+            "checksum": checksum,
             "ingestion_timestamp": now.isoformat(),
         },
     }
@@ -336,6 +392,53 @@ def _process_file_object(
         source_name=source.name,
         ingestion_date=date_str,
         metadata=batch.metadata_json,
+    )
+
+
+def _record_quarantine(
+    session: Session,
+    *,
+    pipeline: IngestionPipeline,
+    batch: IngestionBatch,
+    source,
+    payload_ref: str,
+    failure_reason: str,
+    failed_check: str,
+    metadata: dict[str, Any],
+) -> None:
+    """Persist a QuarantineRecord for a rejected file (FR-006, US2-AC2)."""
+    session.add(
+        QuarantineRecord(
+            pipeline_id=pipeline.id,
+            batch_id=batch.id,
+            source_id=source.id,
+            payload_ref=payload_ref,
+            failure_reason=redact_ingestion(failure_reason),
+            failed_check=failed_check,
+            severity=TestSeverity.error,
+            metadata_json=metadata,
+        )
+    )
+    session.flush()
+
+
+def _is_duplicate_checksum(session: Session, source_id: str, checksum: str) -> bool:
+    """True if a file with this checksum was already ingested for the source.
+
+    Compares against previously ingested (validated) batches for the source
+    location (FR-007, US2-AC3). Quarantined duplicates are excluded so a
+    re-delivery after a transient failure can still be ingested.
+    """
+    return (
+        session.query(IngestionBatch)
+        .join(IngestionPipeline, IngestionBatch.pipeline_id == IngestionPipeline.id)
+        .filter(
+            IngestionPipeline.source_id == source_id,
+            IngestionBatch.checksum == checksum,
+            IngestionBatch.status == BatchStatus.ingestion_validated,
+        )
+        .first()
+        is not None
     )
 
 
