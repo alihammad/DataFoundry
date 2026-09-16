@@ -117,9 +117,7 @@ class SimulatedSourceGateway(SourceGateway):
         tables: dict[str, SimTable] | None = None,
     ) -> None:
         """Seed a database source with tables."""
-        self._sources[source_id] = SimSource(
-            source_type=source_type, tables=tables or {}
-        )
+        self._sources[source_id] = SimSource(source_type=source_type, tables=tables or {})
 
     def seed_object_storage(
         self,
@@ -128,9 +126,7 @@ class SimulatedSourceGateway(SourceGateway):
         files: dict[str, SimFile] | None = None,
     ) -> None:
         """Seed an object-storage source with files."""
-        self._sources[source_id] = SimSource(
-            source_type="object_storage", files=files or {}
-        )
+        self._sources[source_id] = SimSource(source_type="object_storage", files=files or {})
 
     def add_table(
         self,
@@ -168,21 +164,34 @@ class SimulatedSourceGateway(SourceGateway):
         return {
             "source_id": source_id,
             "source_type": source.source_type,
-            "tables": [
-                {"name": t.name, "columns": t.columns}
-                for t in source.tables.values()
-            ],
+            "tables": [{"name": t.name, "columns": t.columns} for t in source.tables.values()],
         }
 
     def test_connection(self, source_id: str) -> dict[str, Any]:
         if f"auth:{source_id}" in self._faults:
-            return {"ok": False, "error": "authentication_failed"}
+            return {
+                "ok": False,
+                "error": "authentication_failed",
+                "message": "Authentication failed for the source",
+            }
         if f"network:{source_id}" in self._faults:
-            return {"ok": False, "error": "network_unreachable"}
+            return {
+                "ok": False,
+                "error": "network_unreachable",
+                "message": "Source network endpoint is unreachable",
+            }
         if f"notfound:{source_id}" in self._faults:
-            return {"ok": False, "error": "database_not_found"}
+            return {
+                "ok": False,
+                "error": "database_not_found",
+                "message": "Database or source does not exist",
+            }
         if source_id not in self._sources:
-            return {"ok": False, "error": "database_not_found"}
+            return {
+                "ok": False,
+                "error": "database_not_found",
+                "message": "Database or source does not exist",
+            }
         return {"ok": True, "discovered_schema": self.discover_schema(source_id)}
 
     def extract(
@@ -198,9 +207,7 @@ class SimulatedSourceGateway(SourceGateway):
         rows = table.rows
         if cursor_column is not None and watermark is not None:
             rows = [
-                r
-                for r in rows
-                if r.get(cursor_column) is not None and r[cursor_column] > watermark
+                r for r in rows if r.get(cursor_column) is not None and r[cursor_column] > watermark
             ]
         return list(rows)
 

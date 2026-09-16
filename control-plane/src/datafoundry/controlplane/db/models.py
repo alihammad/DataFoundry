@@ -820,9 +820,7 @@ class DataSource(Base):
         ForeignKey("platforms.id", name="fk_source_platform"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(63), nullable=False)
-    type: Mapped[SourceType] = mapped_column(
-        Enum(SourceType, name="source_type"), nullable=False
-    )
+    type: Mapped[SourceType] = mapped_column(Enum(SourceType, name="source_type"), nullable=False)
     #: Secret-scanned connection reference (host/database or location); the
     #: credential is always a ``secretRef``, never a value (FR-005, SC-007).
     config_ref: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
@@ -845,9 +843,7 @@ class DataSource(Base):
     configs: Mapped[list[IngestionConfig]] = relationship(back_populates="source")
     contracts: Mapped[list[SourceContract]] = relationship(back_populates="source")
     pipelines: Mapped[list[IngestionPipeline]] = relationship(back_populates="source")
-    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(
-        back_populates="source"
-    )
+    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(back_populates="source")
 
 
 class IngestionConfig(Base):
@@ -968,9 +964,7 @@ class IngestionPipeline(Base):
     source: Mapped[DataSource] = relationship(back_populates="pipelines")
     runs: Mapped[list[IngestionRun]] = relationship(back_populates="pipeline")
     batches: Mapped[list[IngestionBatch]] = relationship(back_populates="pipeline")
-    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(
-        back_populates="pipeline"
-    )
+    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(back_populates="pipeline")
 
 
 class IngestionBatch(Base):
@@ -1002,9 +996,7 @@ class IngestionBatch(Base):
 
     run: Mapped[IngestionRun] = relationship(back_populates="batches")
     pipeline: Mapped[IngestionPipeline] = relationship(back_populates="batches")
-    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(
-        back_populates="batch"
-    )
+    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(back_populates="batch")
 
 
 class IngestionRun(Base):
@@ -1059,9 +1051,7 @@ class QuarantineRecord(Base):
     """A rejected file/record/batch with full context (spec Key Entity, FR-006)."""
 
     __tablename__ = "quarantine_records"
-    __table_args__ = (
-        Index("ix_quarantine_source_quarantined", "source_id", "quarantined_at"),
-    )
+    __table_args__ = (Index("ix_quarantine_source_quarantined", "source_id", "quarantined_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
     pipeline_id: Mapped[uuid.UUID] = mapped_column(

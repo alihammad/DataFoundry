@@ -50,3 +50,13 @@ def get_cloud_gateway(request: Request) -> Any:
 def get_quality_gateway(request: Request) -> Any:
     """Quality gateway for gate/contract/quarantine evaluation (simulated)."""
     return request.app.state.quality_gateway
+
+
+def get_source_gateway(request: Request) -> Any:
+    """Source gateway for ingestion connectivity/schema (simulated)."""
+    return request.app.state.source_gateway
+
+
+def get_landing_gateway(request: Request) -> Any:
+    """Landing gateway for Bronze ingestion writes (simulated)."""
+    return request.app.state.landing_gateway
