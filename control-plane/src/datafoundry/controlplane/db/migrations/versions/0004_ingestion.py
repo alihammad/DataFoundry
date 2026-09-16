@@ -389,9 +389,7 @@ def downgrade() -> None:
     op.drop_index("ix_quarantine_source_quarantined", table_name="quarantine_records")
     op.drop_table("quarantine_records")
     op.drop_table("ingestion_batches")
-    op.drop_index(
-        "uq_one_active_ingestion_run_per_pipeline", table_name="ingestion_runs"
-    )
+    op.drop_index("uq_one_active_ingestion_run_per_pipeline", table_name="ingestion_runs")
     op.drop_table("ingestion_runs")
     op.drop_table("ingestion_pipelines")
     op.drop_table("source_contracts")

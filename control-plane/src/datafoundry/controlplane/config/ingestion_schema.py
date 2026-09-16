@@ -93,9 +93,7 @@ class IngestionConfigSchema(_StrictModel):
         # Rule 3: every incremental object declares a cursor column.
         for obj in self.source.objects or []:
             if obj.mode == "incremental" and not obj.cursor_column:
-                raise ValueError(
-                    f"object '{obj.name}' is incremental but has no cursor_column"
-                )
+                raise ValueError(f"object '{obj.name}' is incremental but has no cursor_column")
         # Rule 5: filePattern iff object_storage; objects[] iff database type.
         if self.source.type == "object_storage":
             if not self.source.filePattern:

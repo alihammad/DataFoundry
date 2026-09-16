@@ -182,9 +182,7 @@ class TestValidation:
         assert result["failed_check"] == "format"
 
     def test_validate_file_checksum_mismatch(self):
-        result = validate_file(
-            content=b"hello", file_name="data.csv", declared_checksum="deadbeef"
-        )
+        result = validate_file(content=b"hello", file_name="data.csv", declared_checksum="deadbeef")
         assert result["ok"] is False
         assert result["failed_check"] == "checksum"
 
@@ -200,9 +198,7 @@ class TestValidation:
         assert result["difference"] == 130
 
     def test_reconcile_within_tolerance(self):
-        result = reconcile_record_count(
-            source_count=100, ingested_count=99, tolerance=1
-        )
+        result = reconcile_record_count(source_count=100, ingested_count=99, tolerance=1)
         assert result["ok"] is True
 
 

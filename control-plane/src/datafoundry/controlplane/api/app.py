@@ -30,11 +30,17 @@ def _wire_runtime(app: FastAPI, settings: Settings) -> None:
     """
     from datafoundry.controlplane.db.session import get_sessionmaker
     from datafoundry.controlplane.engine.gateway import build_gateway
+    from datafoundry.controlplane.ingestion.gateway import (
+        build_landing_gateway,
+        build_source_gateway,
+    )
     from datafoundry.controlplane.quality.gateway import build_quality_gateway
 
     app.state.sessionmaker = get_sessionmaker()
     app.state.gateway = build_gateway(settings)
     app.state.quality_gateway = build_quality_gateway(settings)
+    app.state.source_gateway = build_source_gateway(settings)
+    app.state.landing_gateway = build_landing_gateway(settings)
 
     def _dispatch(run_id: uuid.UUID) -> None:
         def _process() -> None:
@@ -54,6 +60,31 @@ def _wire_runtime(app: FastAPI, settings: Settings) -> None:
         threading.Thread(target=_process, daemon=True, name=f"run-{run_id}").start()
 
     app.state.dispatcher = _dispatch
+
+    # Ingestion dispatcher: hands a queued IngestionRun to the ingestion engine
+    # (T022). Tests drive the engine explicitly via process_ingestion_run.
+    def _dispatch_ingestion(run_id: uuid.UUID) -> None:
+        def _process() -> None:
+            session = app.state.sessionmaker()
+            try:
+                from datafoundry.controlplane.ingestion.engine import run_ingestion
+
+                run_ingestion(
+                    session,
+                    gateway=app.state.source_gateway,
+                    landing=app.state.landing_gateway,
+                    run_id=run_id,
+                )
+                session.commit()
+            except Exception:
+                session.rollback()
+                logger.exception("ingestion.dispatch_failed", extra={"run_id": str(run_id)})
+            finally:
+                session.close()
+
+        threading.Thread(target=_process, daemon=True, name=f"ingestion-{run_id}").start()
+
+    app.state.ingestion_dispatcher = _dispatch_ingestion
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -159,6 +190,18 @@ def _register_routers(api_router: APIRouter) -> None:
         from datafoundry.controlplane.api import quality as quality_api
 
         api_router.include_router(quality_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import sources as sources_api
+
+        api_router.include_router(sources_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import ingestion_configs as ingestion_configs_api
+
+        api_router.include_router(ingestion_configs_api.router)
     except ImportError:
         pass
 

@@ -339,9 +339,7 @@ def _process_file_object(
     )
 
 
-def _get_contract(
-    session: Session, source_id: str, object_name: str
-) -> SourceContract | None:
+def _get_contract(session: Session, source_id: str, object_name: str) -> SourceContract | None:
     return (
         session.query(SourceContract)
         .filter_by(source_id=source_id, object_name=object_name)
