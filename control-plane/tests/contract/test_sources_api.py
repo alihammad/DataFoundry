@@ -278,3 +278,107 @@ class TestListAndGetSources:
     def test_get_unknown_404(self, app, client):
         response = client.get(f"/api/v1/sources/{uuid.uuid4()}")
         assert response.status_code == 404
+
+
+class TestObjectStorageSource:
+    """T025: object-storage source registration + config with filePattern (US2)."""
+
+    def _register(self, app, client, **overrides):
+        platform_id = _seed_platform(app)
+        body = {
+            "platform_id": str(platform_id),
+            "name": "events-drop",
+            "type": "object_storage",
+            "config": {"location": "s3://acme-landing/events", "format": "parquet"},
+        }
+        body.update(overrides)
+        response = client.post("/api/v1/sources", json=body)
+        assert response.status_code == 201, response.text
+        return response.json()["source_id"]
+
+    def test_register_object_storage_201(self, app, client):
+        source_id = self._register(app, client)
+        response = client.get(f"/api/v1/sources/{source_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["type"] == "object_storage"
+        assert data["config"]["location"] == "s3://acme-landing/events"
+        assert data["config"]["format"] == "parquet"
+
+    def test_register_invalid_format_422(self, app, client):
+        platform_id = _seed_platform(app)
+        response = client.post(
+            "/api/v1/sources",
+            json={
+                "platform_id": str(platform_id),
+                "name": "events-drop",
+                "type": "object_storage",
+                "config": {"location": "s3://acme-landing/events", "format": "xml"},
+            },
+        )
+        assert response.status_code == 422
+        assert response.headers["content-type"].startswith(PROBLEM_CT)
+        assert response.json()["errors"]
+
+    def test_register_missing_location_422(self, app, client):
+        platform_id = _seed_platform(app)
+        response = client.post(
+            "/api/v1/sources",
+            json={
+                "platform_id": str(platform_id),
+                "name": "events-drop",
+                "type": "object_storage",
+                "config": {"format": "parquet"},  # no location
+            },
+        )
+        assert response.status_code == 422
+        assert response.headers["content-type"].startswith(PROBLEM_CT)
+
+    def test_config_with_file_pattern(self, app, client):
+        source_id = self._register(app, client)
+        config = {
+            "apiVersion": "datafoundry/v1",
+            "kind": "IngestionConfig",
+            "metadata": {"name": "events-to-bronze", "source": "events-drop"},
+            "source": {
+                "type": "object_storage",
+                "filePattern": "s3://acme-landing/events/*.parquet",
+            },
+            "schedule": "every 15 minutes",
+            "target": {"zone": "bronze"},
+            "validation": {"reconciliation_tolerance": 0, "contract_mode": "enforce"},
+        }
+        response = client.post(f"/api/v1/sources/{source_id}/config", json=config)
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert {"config_id", "version", "pipeline_id"} <= set(body)
+
+    def test_config_object_storage_with_objects_422(self, app, client):
+        source_id = self._register(app, client)
+        config = {
+            "apiVersion": "datafoundry/v1",
+            "kind": "IngestionConfig",
+            "metadata": {"name": "events-to-bronze", "source": "events-drop"},
+            "source": {
+                "type": "object_storage",
+                "filePattern": "s3://acme-landing/events/*.parquet",
+                "objects": [{"name": "x", "mode": "full"}],  # forbidden for object_storage
+            },
+            "target": {"zone": "bronze"},
+        }
+        response = client.post(f"/api/v1/sources/{source_id}/config", json=config)
+        assert response.status_code == 422
+        assert response.headers["content-type"].startswith(PROBLEM_CT)
+
+    def test_config_missing_file_pattern_422(self, app, client):
+        source_id = self._register(app, client)
+        config = {
+            "apiVersion": "datafoundry/v1",
+            "kind": "IngestionConfig",
+            "metadata": {"name": "events-to-bronze", "source": "events-drop"},
+            "source": {"type": "object_storage"},  # no filePattern
+            "target": {"zone": "bronze"},
+        }
+        response = client.post(f"/api/v1/sources/{source_id}/config", json=config)
+        assert response.status_code == 422
+        assert response.headers["content-type"].startswith(PROBLEM_CT)

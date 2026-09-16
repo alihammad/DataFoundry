@@ -86,15 +86,15 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T025 [P] [US2] Contract tests for object-storage source registration (`POST /sources` with `type=object_storage`, `location`, `format`) and config with `filePattern` per contracts/ingestion-api.md §1/§2 — in `control-plane/tests/contract/test_sources_api.py`
-- [ ] T026 [P] [US2] Integration test for quickstart Scenario 4: valid Parquet files land in Bronze with file metadata; a corrupted file routes to `quarantine/events/<batch_id>/` with `_quarantine_metadata.json`; valid files still ingested; run `outcome: partial`; duplicate checksum detected and not double-loaded — in `control-plane/tests/integration/test_file_ingestion_flow.py`
+- [X] T025 [P] [US2] Contract tests for object-storage source registration (`POST /sources` with `type=object_storage`, `location`, `format`) and config with `filePattern` per contracts/ingestion-api.md §1/§2 — in `control-plane/tests/contract/test_sources_api.py`
+- [X] T026 [P] [US2] Integration test for quickstart Scenario 4: valid Parquet files land in Bronze with file metadata; a corrupted file routes to `quarantine/events/<batch_id>/` with `_quarantine_metadata.json`; valid files still ingested; run `outcome: partial`; duplicate checksum detected and not double-loaded — in `control-plane/tests/integration/test_file_ingestion_flow.py`
 
 ### Implementation for User Story 2
 
-- [ ] T027 [P] [US2] Implement the object-storage connector (PyArrow for CSV/JSON/Parquet, routed through the existing `CloudGateway` for S3/GCS parity): `discover_schema`, `test_connection` (incl. `invalid_format` classification), `extract` with per-file record counts, SHA-256 checksums, and file metadata (R-03) — in `control-plane/src/datafoundry/controlplane/ingestion/connectors/object_storage.py`
-- [ ] T028 [US2] Implement file validation and quarantine routing in the engine: validate each file (exists, readable, format, encoding, checksum — FR-006), route invalid files to `quarantine/<source_object>/<batch_id>/` with `_quarantine_metadata.json` + `QuarantineRecord` row, continue valid files (partial success, US2-AC2) — in `control-plane/src/datafoundry/controlplane/ingestion/validation.py` and `engine.py`
-- [ ] T029 [US2] Implement duplicate-file detection: checksum comparison against previously ingested checksums for that source location; identical checksum → recorded, not double-loaded (FR-007, US2-AC3) — in `control-plane/src/datafoundry/controlplane/ingestion/engine.py`
-- [ ] T030 [US2] Implement `GET /api/v1/quarantine` list/filter endpoint (query params `source_id`, `pipeline_id`, `batch_id`, `failed_check`, `since`, `until`) per contracts/ingestion-api.md §5 — in `control-plane/src/datafoundry/controlplane/api/contracts.py`
+- [X] T027 [P] [US2] Implement the object-storage connector (PyArrow for CSV/JSON/Parquet, routed through the existing `CloudGateway` for S3/GCS parity): `discover_schema`, `test_connection` (incl. `invalid_format` classification), `extract` with per-file record counts, SHA-256 checksums, and file metadata (R-03) — in `control-plane/src/datafoundry/controlplane/ingestion/connectors/object_storage.py`
+- [X] T028 [US2] Implement file validation and quarantine routing in the engine: validate each file (exists, readable, format, encoding, checksum — FR-006), route invalid files to `quarantine/<source_object>/<batch_id>/` with `_quarantine_metadata.json` + `QuarantineRecord` row, continue valid files (partial success, US2-AC2) — in `control-plane/src/datafoundry/controlplane/ingestion/validation.py` and `engine.py`
+- [X] T029 [US2] Implement duplicate-file detection: checksum comparison against previously ingested checksums for that source location; identical checksum → recorded, not double-loaded (FR-007, US2-AC3) — in `control-plane/src/datafoundry/controlplane/ingestion/engine.py`
+- [X] T030 [US2] Implement `GET /api/v1/quarantine` list/filter endpoint (query params `source_id`, `pipeline_id`, `batch_id`, `failed_check`, `since`, `until`) per contracts/ingestion-api.md §5 — in `control-plane/src/datafoundry/controlplane/api/contracts.py`
 
 **Checkpoint**: US1 + US2 both work independently — database and file sources land validated data in Bronze with quarantine routing
 
