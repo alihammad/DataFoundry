@@ -227,6 +227,40 @@ def process_quality_run(app):
     return _process
 
 
+@pytest.fixture()
+def simulated_source_gateway():
+    """In-memory source gateway for offline ingestion tests."""
+    from datafoundry.controlplane.ingestion.gateway import SimulatedSourceGateway
+
+    return SimulatedSourceGateway()
+
+
+@pytest.fixture()
+def process_ingestion_run(app):
+    """Drive the ingestion worker explicitly (tests use a no-op dispatcher).
+
+    Returns a callable ``process_ingestion_run(run_id)`` executing the run to
+    its next terminal state against the app's source gateway.
+    """
+
+    def _process(run_id):
+        from datafoundry.controlplane.ingestion.engine import run_ingestion
+
+        session = app.state.sessionmaker()
+        try:
+            run = run_ingestion(
+                session,
+                gateway=app.state.source_gateway,
+                run_id=run_id,
+            )
+            session.commit()
+            return run
+        finally:
+            session.close()
+
+    return _process
+
+
 def load_example(name: str) -> dict:
     import yaml
 
