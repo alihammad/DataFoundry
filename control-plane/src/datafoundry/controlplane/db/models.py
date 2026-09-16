@@ -205,6 +205,63 @@ class DataClassification(enum.StrEnum):
     highly_restricted = "highly_restricted"
 
 
+# -- ingestion enums (feature 002) --------------------------------------------
+
+
+class SourceType(enum.StrEnum):
+    postgres = "postgres"
+    sqlserver = "sqlserver"
+    object_storage = "object_storage"
+
+
+class ConnectionState(enum.StrEnum):
+    untested = "untested"
+    ok = "ok"
+    failed = "failed"
+
+
+class IngestionMode(enum.StrEnum):
+    full = "full"
+    incremental = "incremental"
+
+
+class TargetZone(enum.StrEnum):
+    bronze = "bronze"
+
+
+class PipelineState(enum.StrEnum):
+    active = "active"
+    paused = "paused"
+
+
+class BatchStatus(enum.StrEnum):
+    ingesting = "ingesting"
+    ingested = "ingested"
+    ingestion_validated = "ingestion_validated"
+    failed = "failed"
+    quarantined = "quarantined"
+
+
+class IngestionRunStatus(enum.StrEnum):
+    queued = "queued"
+    running = "running"
+    paused = "paused"
+    succeeded = "succeeded"
+    failed = "failed"
+
+
+class RunTrigger(enum.StrEnum):
+    scheduled = "scheduled"
+    manual = "manual"
+    retry = "retry"
+
+
+class RunOutcome(enum.StrEnum):
+    success = "success"
+    partial = "partial"
+    failed = "failed"
+
+
 # -- entities ------------------------------------------------------------------
 
 
@@ -742,15 +799,309 @@ class QualityScore(Base):
     dataset: Mapped[Dataset] = relationship(back_populates="scores")
 
 
+# -- feature 002 ingestion entities -------------------------------------------
+
+
+class DataSource(Base):
+    """A configured origin of data (spec Key Entity, FR-005)."""
+
+    __tablename__ = "data_sources"
+    __table_args__ = (
+        UniqueConstraint("platform_id", "name", name="uq_source_name_per_platform"),
+        CheckConstraint(
+            "length(name) BETWEEN 3 AND 63 AND name = lower(name) "
+            "AND substr(name, 1, 1) BETWEEN 'a' AND 'z'",
+            name="ck_source_name_format",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    platform_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("platforms.id", name="fk_source_platform"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    type: Mapped[SourceType] = mapped_column(
+        Enum(SourceType, name="source_type"), nullable=False
+    )
+    #: Secret-scanned connection reference (host/database or location); the
+    #: credential is always a ``secretRef``, never a value (FR-005, SC-007).
+    config_ref: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    connection_state: Mapped[ConnectionState] = mapped_column(
+        Enum(ConnectionState, name="connection_state"),
+        nullable=False,
+        default=ConnectionState.untested,
+    )
+    last_test_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_test_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    platform: Mapped[Platform] = relationship()
+    configs: Mapped[list[IngestionConfig]] = relationship(back_populates="source")
+    contracts: Mapped[list[SourceContract]] = relationship(back_populates="source")
+    pipelines: Mapped[list[IngestionPipeline]] = relationship(back_populates="source")
+    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(
+        back_populates="source"
+    )
+
+
+class IngestionConfig(Base):
+    """Per-source definition (spec Key Entity, FR-017)."""
+
+    __tablename__ = "ingestion_configs"
+    __table_args__ = (
+        UniqueConstraint("source_id", "version", name="uq_ingestion_config_version"),
+        CheckConstraint("version >= 1", name="ck_ingestion_config_version_positive"),
+        CheckConstraint("length(config_hash) = 64", name="ck_ingestion_config_hash_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("data_sources.id", name="fk_ingestion_config_source"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Canonical YAML — no plaintext secrets (SC-007), secret-scanned before persist.
+    config_yaml: Mapped[str] = mapped_column(Text, nullable=False)
+    config_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_type: Mapped[SourceType] = mapped_column(
+        Enum(SourceType, name="source_type"), nullable=False
+    )
+    #: Selected tables (with cursor column) or file pattern.
+    selected_objects: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    ingestion_mode: Mapped[IngestionMode] = mapped_column(
+        Enum(IngestionMode, name="ingestion_mode"), nullable=False
+    )
+    schedule: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    target_zone: Mapped[TargetZone] = mapped_column(
+        Enum(TargetZone, name="target_zone"), nullable=False, default=TargetZone.bronze
+    )
+    #: reconciliation tolerance, contract mode (FR-009).
+    validation_settings: Mapped[dict[str, Any]] = mapped_column(
+        JSONVariant, nullable=False, default=dict
+    )
+    created_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    source: Mapped[DataSource] = relationship(back_populates="configs")
+    pipelines: Mapped[list[IngestionPipeline]] = relationship(back_populates="config")
+
+
+class SourceContract(Base):
+    """Expected schema agreement for a source object (spec Key Entity, FR-010)."""
+
+    __tablename__ = "source_contracts"
+    __table_args__ = (
+        UniqueConstraint("source_id", "object_name", name="uq_contract_per_source_object"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("data_sources.id", name="fk_source_contract_source"), nullable=False
+    )
+    object_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    #: ``{column: {type, nullable}}`` (contracts/source-contract-schema.md).
+    schema_definition: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    origin: Mapped[ContractOrigin] = mapped_column(
+        Enum(ContractOrigin, name="contract_origin"), nullable=False
+    )
+    approval_status: Mapped[ApprovalStatus] = mapped_column(
+        Enum(ApprovalStatus, name="approval_status"),
+        nullable=False,
+        default=ApprovalStatus.pending,
+    )
+    created_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    source: Mapped[DataSource] = relationship(back_populates="contracts")
+
+
+class IngestionPipeline(Base):
+    """Executable unit created from an IngestionConfig (spec Key Entity)."""
+
+    __tablename__ = "ingestion_pipelines"
+    __table_args__ = (
+        CheckConstraint(
+            "length(name) BETWEEN 3 AND 63 AND name = lower(name) "
+            "AND substr(name, 1, 1) BETWEEN 'a' AND 'z'",
+            name="ck_pipeline_name_format",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    config_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ingestion_configs.id", name="fk_pipeline_config"), nullable=False
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("data_sources.id", name="fk_pipeline_source"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    state: Mapped[PipelineState] = mapped_column(
+        Enum(PipelineState, name="pipeline_state"), nullable=False, default=PipelineState.active
+    )
+    schedule: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    #: ``{object: cursor_value}`` — advanced only on validated commit (R-06).
+    high_watermarks: Mapped[dict[str, Any]] = mapped_column(
+        JSONVariant, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    config: Mapped[IngestionConfig] = relationship(back_populates="pipelines")
+    source: Mapped[DataSource] = relationship(back_populates="pipelines")
+    runs: Mapped[list[IngestionRun]] = relationship(back_populates="pipeline")
+    batches: Mapped[list[IngestionBatch]] = relationship(back_populates="pipeline")
+    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(
+        back_populates="pipeline"
+    )
+
+
+class IngestionBatch(Base):
+    """One unit of ingested data (spec Key Entity, FR-008)."""
+
+    __tablename__ = "ingestion_batches"
+    __table_args__ = (
+        CheckConstraint("record_count >= 0", name="ck_batch_record_count_non_negative"),
+        CheckConstraint("length(checksum) = 64", name="ck_batch_checksum_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ingestion_runs.id", name="fk_batch_run"), nullable=False
+    )
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ingestion_pipelines.id", name="fk_batch_pipeline"), nullable=False
+    )
+    source_object: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_system: Mapped[str] = mapped_column(String(256), nullable=False)
+    record_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[BatchStatus] = mapped_column(
+        Enum(BatchStatus, name="batch_status"), nullable=False, default=BatchStatus.ingesting
+    )
+    ingested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Secret-scanned full batch metadata (SC-003).
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False, default=dict)
+
+    run: Mapped[IngestionRun] = relationship(back_populates="batches")
+    pipeline: Mapped[IngestionPipeline] = relationship(back_populates="batches")
+    quarantine_records: Mapped[list[QuarantineRecord]] = relationship(
+        back_populates="batch"
+    )
+
+
+class IngestionRun(Base):
+    """One pipeline execution (spec Key Entity, FR-013)."""
+
+    __tablename__ = "ingestion_runs"
+    __table_args__ = (
+        # One active run per pipeline (data-model.md invariant 5, R-10).
+        Index(
+            "uq_one_active_ingestion_run_per_pipeline",
+            "pipeline_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running', 'paused')"),
+            sqlite_where=text("status IN ('queued', 'running', 'paused')"),
+        ),
+        CheckConstraint("records_processed >= 0", name="ck_run_records_non_negative"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ingestion_pipelines.id", name="fk_run_pipeline"), nullable=False
+    )
+    trigger: Mapped[RunTrigger] = mapped_column(
+        Enum(RunTrigger, name="run_trigger"), nullable=False
+    )
+    status: Mapped[IngestionRunStatus] = mapped_column(
+        Enum(IngestionRunStatus, name="ingestion_run_status"),
+        nullable=False,
+        default=IngestionRunStatus.queued,
+    )
+    retry_of: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("ingestion_runs.id", name="fk_run_retry_of"), nullable=True
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    records_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    outcome: Mapped[RunOutcome | None] = mapped_column(
+        Enum(RunOutcome, name="run_outcome"), nullable=True
+    )
+    #: Redacted failure reason (FR-013, US1-AC4).
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    log_ref: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    pipeline: Mapped[IngestionPipeline] = relationship(back_populates="runs")
+    batches: Mapped[list[IngestionBatch]] = relationship(back_populates="run")
+
+
+class QuarantineRecord(Base):
+    """A rejected file/record/batch with full context (spec Key Entity, FR-006)."""
+
+    __tablename__ = "quarantine_records"
+    __table_args__ = (
+        Index("ix_quarantine_source_quarantined", "source_id", "quarantined_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ingestion_pipelines.id", name="fk_quarantine_pipeline"), nullable=False
+    )
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ingestion_batches.id", name="fk_quarantine_batch"), nullable=False
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("data_sources.id", name="fk_quarantine_source"), nullable=False
+    )
+    payload_ref: Mapped[str] = mapped_column(String(512), nullable=False)
+    failure_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    failed_check: Mapped[str] = mapped_column(String(64), nullable=False)
+    severity: Mapped[TestSeverity] = mapped_column(
+        Enum(TestSeverity, name="test_severity"), nullable=False
+    )
+    quarantined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    #: Secret-scanned original reference + error details (SC-007).
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False, default=dict)
+
+    pipeline: Mapped[IngestionPipeline] = relationship(back_populates="quarantine_records")
+    batch: Mapped[IngestionBatch] = relationship(back_populates="quarantine_records")
+    source: Mapped[DataSource] = relationship(back_populates="quarantine_records")
+
+
 __all__ = [
     "ApprovalStatus",
     "AuditRecord",
     "Base",
+    "BatchStatus",
     "ConfigSource",
+    "ConnectionState",
     "ContractOrigin",
     "ContractViolation",
     "DataClassification",
     "DataContract",
+    "DataSource",
     "Dataset",
     "DatasetLayer",
     "DeploymentRun",
@@ -761,9 +1112,16 @@ __all__ = [
     "GateReport",
     "HealthCheckResult",
     "HealthStatus",
+    "IngestionBatch",
+    "IngestionConfig",
+    "IngestionMode",
+    "IngestionPipeline",
+    "IngestionRun",
+    "IngestionRunStatus",
     "LayerTransition",
     "OverallStatus",
     "OverrideStatus",
+    "PipelineState",
     "Platform",
     "PlatformConfigVersion",
     "PlatformStatus",
@@ -772,9 +1130,15 @@ __all__ = [
     "QualityScore",
     "QualityTest",
     "QuarantineEntry",
+    "QuarantineRecord",
+    "RunOutcome",
     "RunStatus",
+    "RunTrigger",
     "RunType",
+    "SourceContract",
+    "SourceType",
     "StepStatus",
+    "TargetZone",
     "TestCategory",
     "TestResult",
     "TestResultStatus",

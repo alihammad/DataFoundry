@@ -233,3 +233,143 @@ def build_source_gateway(settings: Any) -> SourceGateway:
     added in later phases.
     """
     return SimulatedSourceGateway()
+
+
+class LandingGateway(abc.ABC):
+    """Operations the ingestion engine needs to land data in Bronze.
+
+    Staging-then-commit (R-05): the engine writes to a staging path then
+    atomically commits by a final manifest write; a failed mid-run never
+    presents a torn batch as complete (FR-015).
+    """
+
+    @abc.abstractmethod
+    def write_staging(
+        self,
+        *,
+        batch_id: str,
+        source_object: str,
+        source_name: str,
+        ingestion_date: str,
+        payload: bytes,
+        filename: str,
+    ) -> str:
+        """Write a payload to the staging path; returns the staging ref."""
+
+    @abc.abstractmethod
+    def commit_batch(
+        self,
+        *,
+        batch_id: str,
+        source_object: str,
+        source_name: str,
+        ingestion_date: str,
+        metadata: dict[str, Any],
+    ) -> str:
+        """Atomically commit a staged batch (final manifest write); returns the
+        committed path."""
+
+    @abc.abstractmethod
+    def write_quarantine(
+        self,
+        *,
+        batch_id: str,
+        source_object: str,
+        payload_ref: str,
+        metadata: dict[str, Any],
+    ) -> str:
+        """Write a quarantined payload; returns the quarantine ref."""
+
+    @abc.abstractmethod
+    def discard_staging(self, *, batch_id: str) -> None:
+        """Discard a batch's staging path (failed run, no torn batch)."""
+
+
+class SimulatedLandingGateway(LandingGateway):
+    """In-memory Bronze landing (dev mode / tests)."""
+
+    def __init__(self) -> None:
+        self._staging: dict[str, dict[str, Any]] = {}
+        self._committed: dict[str, dict[str, Any]] = {}
+        self._quarantine: dict[str, dict[str, Any]] = {}
+
+    def write_staging(
+        self,
+        *,
+        batch_id: str,
+        source_object: str,
+        source_name: str,
+        ingestion_date: str,
+        payload: bytes,
+        filename: str,
+    ) -> str:
+        ref = f"staging/{batch_id}/{filename}"
+        self._staging[ref] = {
+            "batch_id": batch_id,
+            "source_object": source_object,
+            "source_name": source_name,
+            "ingestion_date": ingestion_date,
+            "payload": payload,
+        }
+        return ref
+
+    def commit_batch(
+        self,
+        *,
+        batch_id: str,
+        source_object: str,
+        source_name: str,
+        ingestion_date: str,
+        metadata: dict[str, Any],
+    ) -> str:
+        path = (
+            f"bronze/{source_object}/source={source_name}/"
+            f"ingestion_date={ingestion_date}/{batch_id}/"
+        )
+        self._committed[path] = {
+            "batch_id": batch_id,
+            "source_object": source_object,
+            "source_name": source_name,
+            "ingestion_date": ingestion_date,
+            "metadata": metadata,
+        }
+        # Staging is consumed by the commit.
+        for ref in list(self._staging):
+            if self._staging[ref]["batch_id"] == batch_id:
+                del self._staging[ref]
+        return path
+
+    def write_quarantine(
+        self,
+        *,
+        batch_id: str,
+        source_object: str,
+        payload_ref: str,
+        metadata: dict[str, Any],
+    ) -> str:
+        ref = f"quarantine/{source_object}/{batch_id}/{payload_ref}"
+        self._quarantine[ref] = {
+            "batch_id": batch_id,
+            "source_object": source_object,
+            "payload_ref": payload_ref,
+            "metadata": metadata,
+        }
+        return ref
+
+    def discard_staging(self, *, batch_id: str) -> None:
+        for ref in list(self._staging):
+            if self._staging[ref]["batch_id"] == batch_id:
+                del self._staging[ref]
+
+    # -- inspection (tests) ---------------------------------------------------
+
+    def committed_paths(self) -> list[str]:
+        return list(self._committed)
+
+    def quarantine_refs(self) -> list[str]:
+        return list(self._quarantine)
+
+
+def build_landing_gateway(settings: Any) -> LandingGateway:
+    """Build the landing gateway for the app (simulated in dev/tests)."""
+    return SimulatedLandingGateway()

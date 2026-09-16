@@ -319,3 +319,157 @@ class AuditService:
                 "report_id": str(report_id),
             },
         )
+
+    # -- feature 002 ingestion actions (T013, FR-014, SC-007) -----------------
+
+    def source_registered(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        source_id: uuid.UUID,
+        source_name: str,
+        source_type: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="source.registered",
+            platform_id=platform_id,
+            payload={
+                "source_id": str(source_id),
+                "source_name": source_name,
+                "source_type": source_type,
+            },
+        )
+
+    def source_tested(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        source_id: uuid.UUID,
+        ok: bool,
+        detail: str | None = None,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="source.tested",
+            platform_id=platform_id,
+            payload={
+                "source_id": str(source_id),
+                "ok": ok,
+                "detail": detail,
+            },
+        )
+
+    def config_created(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        source_id: uuid.UUID,
+        config_id: uuid.UUID,
+        version: int,
+        config_hash: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="config.created",
+            platform_id=platform_id,
+            payload={
+                "source_id": str(source_id),
+                "config_id": str(config_id),
+                "version": version,
+                "config_hash": config_hash,
+            },
+        )
+
+    def config_updated(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        source_id: uuid.UUID,
+        config_id: uuid.UUID,
+        version: int,
+        config_hash: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="config.updated",
+            platform_id=platform_id,
+            payload={
+                "source_id": str(source_id),
+                "config_id": str(config_id),
+                "version": version,
+                "config_hash": config_hash,
+            },
+        )
+
+    def pipeline_paused(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        pipeline_id: uuid.UUID,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="pipeline.paused",
+            platform_id=platform_id,
+            payload={"pipeline_id": str(pipeline_id)},
+        )
+
+    def pipeline_resumed(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        pipeline_id: uuid.UUID,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="pipeline.resumed",
+            platform_id=platform_id,
+            payload={"pipeline_id": str(pipeline_id)},
+        )
+
+    def run_triggered(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        pipeline_id: uuid.UUID,
+        run_id: uuid.UUID,
+        trigger: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="run.triggered",
+            platform_id=platform_id,
+            payload={
+                "pipeline_id": str(pipeline_id),
+                "run_id": str(run_id),
+                "trigger": trigger,
+            },
+        )
+
+    def run_retried(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        pipeline_id: uuid.UUID,
+        run_id: uuid.UUID,
+        retry_of: uuid.UUID,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="run.retried",
+            platform_id=platform_id,
+            payload={
+                "pipeline_id": str(pipeline_id),
+                "run_id": str(run_id),
+                "retry_of": str(retry_of),
+            },
+        )
