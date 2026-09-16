@@ -1,2 +1,68 @@
 # Workflow status tracker (local only, per specs/status.json)
 specs/status.json
+<<<<<<< Updated upstream
+=======
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform/workspaces/
+
+# --- Secrets & environment (SC-006: zero plaintext secrets in repo) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+credentials.json
+
+# --- Node.js / TypeScript (feature 007 web UI) ---
+node_modules/
+ui/dist/
+ui/coverage/
+*.log
+playwright-report/
+test-results/
+service-account*.json
+kubeconfig*
+secrets/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Universal / editor ---
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# --- Node (future frontend, feature 007) ---
+node_modules/
+>>>>>>> Stashed changes
