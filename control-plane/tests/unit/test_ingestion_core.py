@@ -7,10 +7,22 @@ and secret-scan on ingestion payloads.
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from datafoundry.controlplane.config.ingestion_schema import (
     IngestionConfigError,
     validate_ingestion_config,
+)
+from datafoundry.controlplane.db.models import (
+    DataSource,
+    IngestionConfig,
+    IngestionMode,
+    IngestionPipeline,
+    IngestionRun,
+    RunTrigger,
+    SourceType,
+    TargetZone,
 )
 from datafoundry.controlplane.ingestion.connectors.base import Connector
 from datafoundry.controlplane.ingestion.connectors.registry import (
@@ -417,3 +429,207 @@ class TestHighWatermark:
             pipe = session.get(IngestionPipeline, pipeline_id)
             # Watermark must NOT advance on a failed batch.
             assert "missing_table" not in pipe.high_watermarks
+
+
+# -- T036/FR-020: ingestion alerting + FR-009/US3-AC4 reconciliation ----------
+
+
+class TestIngestionAlerts:
+    def _seed_platform(self, session):
+        from datafoundry.controlplane.db.models import (
+            EnvironmentType,
+            Platform,
+            Provider,
+        )
+
+        platform = Platform(
+            name="alert-platform",
+            provider=Provider.aws,
+            cloud_scope_id="scope-1",
+            region="us-east-1",
+            environment_type=EnvironmentType.test,
+            owner_identity="dev@datafoundry.local",
+        )
+        session.add(platform)
+        session.flush()
+        return platform
+
+    def test_alert_run_failure_redacts_secrets(self, session_factory):
+        from datafoundry.controlplane.db.models import AuditRecord
+        from datafoundry.controlplane.ingestion.alerts import alert_run_failure
+
+        with session_factory() as sess:
+            platform = self._seed_platform(sess)
+            alert_run_failure(
+                sess,
+                actor="dev@datafoundry.local",
+                platform_id=platform.id,
+                pipeline_id=uuid.uuid4(),
+                run_id=uuid.uuid4(),
+                source_id=uuid.uuid4(),
+                object_name="customer",
+                reason="connection refused; password=supersecretvalue123456",
+            )
+            sess.commit()
+        with session_factory() as sess:
+            record = sess.query(AuditRecord).one()
+            assert record.action == "ingestion.alert.run_failure"
+            assert record.payload["object_name"] == "customer"
+            assert "supersecretvalue123456" not in str(record.payload["reason"])
+
+    def test_alert_breaking_change_persists_violations(self, session_factory):
+        from datafoundry.controlplane.db.models import AuditRecord
+        from datafoundry.controlplane.ingestion.alerts import alert_breaking_change
+
+        with session_factory() as sess:
+            platform = self._seed_platform(sess)
+            alert_breaking_change(
+                sess,
+                actor="dev@datafoundry.local",
+                platform_id=platform.id,
+                pipeline_id=uuid.uuid4(),
+                run_id=uuid.uuid4(),
+                source_id=uuid.uuid4(),
+                object_name="orders",
+                violations=[
+                    {"classification": "breaking", "column": "id", "change": "int->string"}
+                ],
+            )
+            sess.commit()
+        with session_factory() as sess:
+            record = sess.query(AuditRecord).one()
+            assert record.action == "ingestion.alert.breaking_change"
+            assert record.payload["violations"][0]["classification"] == "breaking"
+
+    def test_alert_reconciliation_failure(self, session_factory):
+        from datafoundry.controlplane.db.models import AuditRecord
+        from datafoundry.controlplane.ingestion.alerts import alert_reconciliation_failure
+
+        with session_factory() as sess:
+            platform = self._seed_platform(sess)
+            alert_reconciliation_failure(
+                sess,
+                actor="dev@datafoundry.local",
+                platform_id=platform.id,
+                pipeline_id=uuid.uuid4(),
+                run_id=uuid.uuid4(),
+                source_id=uuid.uuid4(),
+                object_name="customer",
+                source_count=1_000_000,
+                ingested_count=999_870,
+                difference=130,
+                tolerance=0,
+            )
+            sess.commit()
+        with session_factory() as sess:
+            record = sess.query(AuditRecord).one()
+            assert record.action == "ingestion.alert.reconciliation_failure"
+            assert record.payload["difference"] == 130
+
+
+class TestReconciliationWiring:
+    """Engine-level record-count reconciliation (FR-009, US3-AC4)."""
+
+    def test_reconciliation_failure_blocks_promotion(self, session_factory):
+        from datafoundry.controlplane.db.models import (
+            BatchStatus,
+            EnvironmentType,
+            IngestionBatch,
+            IngestionRunStatus,
+            Platform,
+            Provider,
+        )
+
+        # Source has 2 rows but the gateway reports 1_000_000 via count_rows.
+        gateway = SimulatedSourceGateway()
+        gateway.seed_database("src-1")
+        gateway.add_table(
+            "src-1",
+            SimTable(
+                name="customer",
+                columns=[
+                    {"name": "id", "type": "integer", "nullable": False},
+                    {"name": "updated_at", "type": "string", "nullable": False},
+                ],
+            ),
+            rows=[
+                {"id": 1, "updated_at": "2026-09-01"},
+                {"id": 2, "updated_at": "2026-09-02"},
+            ],
+        )
+        # Override count_rows to simulate a mismatch.
+        gateway.count_rows = lambda source_id, *, object_name: 1_000_000
+
+        landing = SimulatedLandingGateway()
+        with session_factory() as session:
+            platform = Platform(
+                name="test-platform",
+                provider=Provider.aws,
+                cloud_scope_id="scope-1",
+                region="us-east-1",
+                environment_type=EnvironmentType.test,
+                owner_identity="dev@datafoundry.local",
+            )
+            session.add(platform)
+            session.flush()
+            source = DataSource(
+                platform_id=platform.id,
+                name="crm-prod",
+                type=SourceType.postgres,
+                config_ref={"host": "db", "secretRef": "secrets/crm"},
+                owner_identity="dev@datafoundry.local",
+            )
+            session.add(source)
+            session.flush()
+            gateway.seed_database(str(source.id))
+            gateway.add_table(
+                str(source.id),
+                SimTable(
+                    name="customer",
+                    columns=[
+                        {"name": "id", "type": "integer", "nullable": False},
+                        {"name": "updated_at", "type": "string", "nullable": False},
+                    ],
+                ),
+                rows=[
+                    {"id": 1, "updated_at": "2026-09-01"},
+                    {"id": 2, "updated_at": "2026-09-02"},
+                ],
+            )
+            config = IngestionConfig(
+                source_id=source.id,
+                version=1,
+                config_yaml="apiVersion: datafoundry/v1",
+                config_hash="a" * 64,
+                source_type=SourceType.postgres,
+                selected_objects={"objects": [{"name": "customer", "mode": "full"}]},
+                ingestion_mode=IngestionMode.full,
+                target_zone=TargetZone.bronze,
+                created_by="dev@datafoundry.local",
+            )
+            session.add(config)
+            session.flush()
+            pipeline = IngestionPipeline(
+                config_id=config.id,
+                source_id=source.id,
+                name="crm-pipeline",
+                owner_identity="dev@datafoundry.local",
+            )
+            session.add(pipeline)
+            session.flush()
+            run = IngestionRun(pipeline_id=pipeline.id, trigger=RunTrigger.manual)
+            session.add(run)
+            session.commit()
+            run_id = run.id
+
+            from datafoundry.controlplane.ingestion.engine import run_ingestion
+
+            run_ingestion(session, gateway=gateway, run_id=run_id, landing=landing)
+            session.commit()
+
+            batch = session.query(IngestionBatch).one()
+            assert batch.status == BatchStatus.ingested
+            assert batch.metadata_json["status"] == "ingested"
+            assert batch.metadata_json["reconciliation"]["ok"] is False
+            refreshed = session.get(IngestionRun, run_id)
+            assert refreshed.status == IngestionRunStatus.succeeded

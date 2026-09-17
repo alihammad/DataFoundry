@@ -24,10 +24,16 @@ from datafoundry.controlplane.db.models import (
     SourceContract,
     TestSeverity,
 )
+from datafoundry.controlplane.ingestion.alerts import (
+    alert_breaking_change,
+    alert_reconciliation_failure,
+    alert_run_failure,
+)
 from datafoundry.controlplane.ingestion.contract import infer_contract
 from datafoundry.controlplane.ingestion.gateway import LandingGateway, SourceGateway
 from datafoundry.controlplane.ingestion.security import redact_ingestion
 from datafoundry.controlplane.ingestion.validation import (
+    reconcile_record_count,
     validate_contract_compat,
     validate_file,
 )
@@ -132,6 +138,16 @@ def run_ingestion(
             }
             failed = True
             outcomes.append(RunOutcome.failed)
+            alert_run_failure(
+                session,
+                actor=source.owner_identity,
+                platform_id=source.platform_id,
+                pipeline_id=pipeline.id,
+                run_id=run.id,
+                source_id=source.id,
+                object_name=obj["name"],
+                reason=redact_ingestion(str(exc)),
+            )
             session.flush()
 
     run.records_processed = total_records
@@ -228,8 +244,66 @@ def _process_table_object(
                 ingestion_date=date_str,
                 metadata=batch.metadata_json,
             )
+            # Alert the pipeline owner of the breaking change (FR-020).
+            alert_breaking_change(
+                session,
+                actor=source.owner_identity,
+                platform_id=source.platform_id,
+                pipeline_id=pipeline.id,
+                run_id=batch.run_id,
+                source_id=source.id,
+                object_name=object_name,
+                violations=violations,
+            )
             # Blocked from promotion: stays ingested, never ingestion_validated.
             return
+
+    # Record-count reconciliation (FR-009, US3-AC4): source count vs ingested
+    # count. A difference beyond tolerance blocks promotion (batch stays
+    # ``ingested``, never ``ingestion_validated``) until resolved or overridden.
+    tolerance = int(config.validation_settings.get("reconciliation_tolerance", 0))
+    source_count = gateway.count_rows(str(source.id), object_name=object_name)
+    reconciliation = reconcile_record_count(
+        source_count=source_count,
+        ingested_count=len(rows),
+        tolerance=tolerance,
+    )
+    if not reconciliation["ok"]:
+        batch.status = BatchStatus.ingested
+        batch.record_count = len(rows)
+        batch.ingested_at = now
+        batch.metadata_json = {
+            "source_object": object_name,
+            "source_system": source.name,
+            "ingestion_date": date_str,
+            "batch_id": str(batch.id),
+            "pipeline_id": str(pipeline.id),
+            "record_count": len(rows),
+            "status": "ingested",
+            "reconciliation": reconciliation,
+        }
+        landing.commit_batch(
+            batch_id=str(batch.id),
+            source_object=object_name,
+            source_name=source.name,
+            ingestion_date=date_str,
+            metadata=batch.metadata_json,
+        )
+        alert_reconciliation_failure(
+            session,
+            actor=source.owner_identity,
+            platform_id=source.platform_id,
+            pipeline_id=pipeline.id,
+            run_id=batch.run_id,
+            source_id=source.id,
+            object_name=object_name,
+            source_count=source_count,
+            ingested_count=len(rows),
+            difference=reconciliation["difference"],
+            tolerance=tolerance,
+        )
+        # Blocked from promotion: stays ingested, never ingestion_validated.
+        return
 
     # Land + validate.
     batch.record_count = len(rows)

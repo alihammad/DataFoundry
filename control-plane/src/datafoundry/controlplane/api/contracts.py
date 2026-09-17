@@ -28,6 +28,8 @@ from datafoundry.controlplane.db.models import (
     ContractViolation,
     DataContract,
     Dataset,
+    DataSource,
+    SourceContract,
 )
 from datafoundry.controlplane.quality.contracts.infer import infer_contract
 from fastapi import APIRouter, Depends
@@ -87,6 +89,17 @@ class ContractItem(BaseModel):
 
 class ContractsListResponse(BaseModel):
     items: list[ContractItem]
+
+
+class SourceContractItem(BaseModel):
+    contract_id: uuid.UUID
+    object_name: str
+    origin: str
+    approval_status: str
+
+
+class SourceContractsListResponse(BaseModel):
+    items: list[SourceContractItem]
 
 
 # -- helpers ---------------------------------------------------------------------
@@ -262,11 +275,39 @@ def approve_contract(
     caller: Caller = Depends(get_caller),
     session: Session = Depends(get_db),
 ) -> ContractApproveResponse:
-    """Approve (or reject) an inferred contract (FR-007, US2-AC4).
+    """Approve (or reject) an inferred contract (FR-007, US2-AC4 / US3-AC3).
 
-    Only the dataset owner may approve. Only after approval does the contract
-    gate promotion.
+    Dispatches to a data contract (feature 004) or a source contract
+    (feature 002). Only the owning dataset/source may approve. Only after
+    approval does the contract gate promotion.
     """
+    action = (body or {}).get("action", "approve")
+
+    # Source contract (feature 002, US3).
+    source_contract = session.get(SourceContract, contract_id)
+    if source_contract is not None:
+        source = _get_source(session, source_contract.source_id)
+        if caller.identity != source.owner_identity:
+            raise ForbiddenError(
+                ["contract.approve"],
+                detail="only the source owner may approve a contract",
+            )
+        if action == "reject":
+            source_contract.approval_status = ApprovalStatus.rejected
+        else:
+            source_contract.approval_status = ApprovalStatus.approved
+        source_contract.approved_by = caller.identity
+        session.flush()
+        AuditService(session).source_contract_approved(
+            actor=caller.identity,
+            source_id=source_contract.source_id,
+            contract_id=source_contract.id,
+            object_name=source_contract.object_name,
+            approval_status=source_contract.approval_status.value,
+        )
+        return ContractApproveResponse(approval_status=source_contract.approval_status.value)
+
+    # Data contract (feature 004).
     contract = _get_contract(session, contract_id)
     dataset = _get_dataset(session, contract.dataset_id)
 
@@ -277,7 +318,6 @@ def approve_contract(
             detail="only the dataset owner may approve a contract",
         )
 
-    action = (body or {}).get("action", "approve")
     if action == "reject":
         contract.approval_status = ApprovalStatus.rejected
     else:
@@ -334,3 +374,42 @@ def list_contracts(
             )
         )
     return ContractsListResponse(items=items)
+
+
+# -- source contracts (feature 002, US3) ----------------------------------------
+
+
+def _get_source(session: Session, source_id: uuid.UUID) -> DataSource:
+    source = session.get(DataSource, source_id)
+    if source is None:
+        raise NotFoundError(f"no source with id {source_id}")
+    return source
+
+
+@router.get(
+    "/sources/{source_id}/contracts",
+    response_model=SourceContractsListResponse,
+)
+def list_source_contracts(
+    source_id: uuid.UUID,
+    caller: Caller = Depends(get_caller),
+    session: Session = Depends(get_db),
+) -> SourceContractsListResponse:
+    """List source contracts with origin + approval status (US3)."""
+    _get_source(session, source_id)
+    contracts = session.execute(
+        select(SourceContract)
+        .where(SourceContract.source_id == source_id)
+        .order_by(SourceContract.object_name)
+    ).scalars()
+    return SourceContractsListResponse(
+        items=[
+            SourceContractItem(
+                contract_id=c.id,
+                object_name=c.object_name,
+                origin=c.origin.value,
+                approval_status=c.approval_status.value,
+            )
+            for c in contracts
+        ]
+    )
