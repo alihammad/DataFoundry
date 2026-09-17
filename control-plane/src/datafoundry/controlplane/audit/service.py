@@ -260,6 +260,26 @@ class AuditService:
             },
         )
 
+    def source_contract_approved(
+        self,
+        *,
+        actor: str,
+        source_id: uuid.UUID,
+        contract_id: uuid.UUID,
+        object_name: str,
+        approval_status: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="source_contract.approved",
+            payload={
+                "source_id": str(source_id),
+                "contract_id": str(contract_id),
+                "object_name": object_name,
+                "approval_status": approval_status,
+            },
+        )
+
     def quarantine_replayed(
         self,
         *,

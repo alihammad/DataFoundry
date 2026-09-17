@@ -67,6 +67,10 @@ class SourceGateway(abc.ABC):
         """Extract rows for one source object (optionally incremental)."""
 
     @abc.abstractmethod
+    def count_rows(self, source_id: str, *, object_name: str) -> int:
+        """Return the total row count for a source object (reconciliation)."""
+
+    @abc.abstractmethod
     def list_files(self, source_id: str) -> list[dict[str, Any]]:
         """List files in an object-storage source with metadata + checksums."""
 
@@ -210,6 +214,10 @@ class SimulatedSourceGateway(SourceGateway):
                 r for r in rows if r.get(cursor_column) is not None and r[cursor_column] > watermark
             ]
         return list(rows)
+
+    def count_rows(self, source_id: str, *, object_name: str) -> int:
+        source = self._sources[source_id]
+        return len(source.tables[object_name].rows)
 
     def list_files(self, source_id: str) -> list[dict[str, Any]]:
         source = self._sources[source_id]

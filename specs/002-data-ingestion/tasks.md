@@ -108,16 +108,16 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T031 [P] [US3] Contract tests for `GET /sources/{id}/contracts` (list with origin/approval_status) and `POST /contracts/{id}/approve` (200 approved; owner authorisation required) per contracts/ingestion-api.md §5 — in `control-plane/tests/contract/test_contracts_api.py`
-- [ ] T032 [P] [US3] Integration test for quickstart Scenario 5: approve inferred contract, mutate source schema (integer→string), run pipeline, verify `breaking` classification, batch `ingested` but not `ingestion_validated`, alert raised naming column/change, reconciliation reports difference — in `control-plane/tests/integration/test_contract_validation_flow.py`
+- [X] T031 [P] [US3] Contract tests for `GET /sources/{id}/contracts` (list with origin/approval_status) and `POST /contracts/{id}/approve` (200 approved; owner authorisation required) per contracts/ingestion-api.md §5 — in `control-plane/tests/contract/test_source_contracts_api.py`
+- [X] T032 [P] [US3] Integration test for quickstart Scenario 5: approve inferred contract, mutate source schema (integer→string), run pipeline, verify `breaking` classification, batch `ingested` but not `ingestion_validated`, alert raised naming column/change, reconciliation reports difference — in `control-plane/tests/integration/test_source_contract_validation_flow.py`
 
 ### Implementation for User Story 3
 
-- [ ] T033 [US3] Implement contract inference on first successful ingestion: generate `SourceContract` from observed schema, mark `origin=inferred`, `approval_status=pending` (never auto-approved — constitution V, FR-010, US3-AC3) — in `control-plane/src/datafoundry/controlplane/ingestion/contract.py`
-- [ ] T034 [US3] Implement contract compatibility check at ingestion: compare observed schema against recorded contract, classify each difference breaking/non-breaking/warning per the classification table; breaking → batch `ingested` but not `ingestion_validated`, promotion blocked (FR-009, FR-010) — in `control-plane/src/datafoundry/controlplane/ingestion/validation.py`
-- [ ] T035 [US3] Implement record-count reconciliation: source count vs. ingested count; difference beyond `reconciliation_tolerance` → batch fails reconciliation, promotion blocked until resolved or overridden (FR-009, US3-AC4) — in `control-plane/src/datafoundry/controlplane/ingestion/validation.py`
-- [ ] T036 [US3] Implement alerting to the pipeline owner on run failure, breaking schema change, or reconciliation failure (FR-020): structured alert with offending column/change detail, redacted of secrets — in `control-plane/src/datafoundry/controlplane/ingestion/` (reuse observability/audit)
-- [ ] T037 [US3] Implement the contracts API router per contracts/ingestion-api.md §5: `GET /sources/{id}/contracts`, `POST /contracts/{id}/approve` (owner authorisation, audit write) — in `control-plane/src/datafoundry/controlplane/api/contracts.py`
+- [X] T033 [US3] Implement contract inference on first successful ingestion: generate `SourceContract` from observed schema, mark `origin=inferred`, `approval_status=pending` (never auto-approved — constitution V, FR-010, US3-AC3) — in `control-plane/src/datafoundry/controlplane/ingestion/contract.py`
+- [X] T034 [US3] Implement contract compatibility check at ingestion: compare observed schema against recorded contract, classify each difference breaking/non-breaking/warning per the classification table; breaking → batch `ingested` but not `ingestion_validated`, promotion blocked (FR-009, FR-010) — in `control-plane/src/datafoundry/controlplane/ingestion/validation.py`
+- [X] T035 [US3] Implement record-count reconciliation: source count vs. ingested count; difference beyond `reconciliation_tolerance` → batch fails reconciliation, promotion blocked until resolved or overridden (FR-009, US3-AC4) — in `control-plane/src/datafoundry/controlplane/ingestion/validation.py`
+- [X] T036 [US3] Implement alerting to the pipeline owner on run failure, breaking schema change, or reconciliation failure (FR-020): structured alert with offending column/change detail, redacted of secrets — in `control-plane/src/datafoundry/controlplane/ingestion/` (reuse observability/audit)
+- [X] T037 [US3] Implement the contracts API router per contracts/ingestion-api.md §5: `GET /sources/{id}/contracts`, `POST /contracts/{id}/approve` (owner authorisation, audit write) — in `control-plane/src/datafoundry/controlplane/api/contracts.py`
 
 **Checkpoint**: US1 + US2 + US3 all work independently — no batch with a failed critical check is promoted without an explicit recorded override (SC-004)
 
