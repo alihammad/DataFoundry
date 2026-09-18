@@ -949,6 +949,9 @@ class IngestionPipeline(Base):
     )
     schedule: Mapped[str | None] = mapped_column(String(128), nullable=True)
     owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    #: Next scheduled run time (UTC) — advanced on each scheduled dispatch
+    #: (R-04) so a restart does not re-fire an elapsed run.
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     #: ``{object: cursor_value}`` — advanced only on validated commit (R-06).
     high_watermarks: Mapped[dict[str, Any]] = mapped_column(
         JSONVariant, nullable=False, default=dict

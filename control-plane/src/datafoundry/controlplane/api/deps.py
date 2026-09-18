@@ -57,6 +57,15 @@ def get_source_gateway(request: Request) -> Any:
     return request.app.state.source_gateway
 
 
+def get_ingestion_dispatcher(request: Request) -> Callable[[Any], None]:
+    """Hook that hands a queued IngestionRun to the ingestion engine (T022).
+
+    Production: starts the ingestion worker loop for the run. Tests: no-op —
+    the worker is driven explicitly via ``process_ingestion_run``.
+    """
+    return request.app.state.ingestion_dispatcher
+
+
 def get_landing_gateway(request: Request) -> Any:
     """Landing gateway for Bronze ingestion writes (simulated)."""
     return request.app.state.landing_gateway

@@ -36,6 +36,7 @@ def settings(tmp_path: Path) -> Settings:
         otel_enabled=False,
         log_json=False,
         auth_mode="dev",
+        ingestion_scheduler_enabled=False,
     )
 
 
@@ -50,6 +51,7 @@ def make_settings(tmp_path: Path):
             "otel_enabled": False,
             "log_json": False,
             "auth_mode": "dev",
+            "ingestion_scheduler_enabled": False,
         }
         base.update(overrides)
         return Settings(**base)

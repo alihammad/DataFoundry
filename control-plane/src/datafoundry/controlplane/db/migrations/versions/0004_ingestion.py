@@ -211,6 +211,7 @@ def upgrade() -> None:
         ),
         sa.Column("schedule", sa.String(128), nullable=True),
         sa.Column("owner_identity", sa.String(256), nullable=False),
+        sa.Column("next_run_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "high_watermarks",
             postgresql.JSONB(astext_type=sa.Text()),

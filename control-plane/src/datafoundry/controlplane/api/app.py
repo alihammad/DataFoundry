@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import threading
 import uuid
+from contextlib import asynccontextmanager
 
 from datafoundry.controlplane.api.errors import register_error_handlers
 from datafoundry.controlplane.config.settings import Settings, get_settings
@@ -86,15 +87,40 @@ def _wire_runtime(app: FastAPI, settings: Settings) -> None:
 
     app.state.ingestion_dispatcher = _dispatch_ingestion
 
+    # In-process ingestion scheduler (T042, R-04): background ticker dispatching
+    # due pipelines through the ingestion dispatcher. Started in the app
+    # lifespan (not at import) so the module-level ``app = create_app()`` does
+    # not spawn a thread that races test teardown. Tests drive ticks directly
+    # via IngestionScheduler.tick().
+    from datafoundry.controlplane.ingestion.scheduler import IngestionScheduler
+
+    app.state.ingestion_scheduler = IngestionScheduler(
+        app.state.sessionmaker,
+        dispatcher=_dispatch_ingestion,
+    )
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        # Start the in-process ingestion scheduler only when serving (uvicorn /
+        # TestClient context). Tests that construct the app without a lifespan
+        # drive ticks directly via IngestionScheduler.tick().
+        if settings.ingestion_scheduler_enabled:
+            app.state.ingestion_scheduler.start()
+        try:
+            yield
+        finally:
+            app.state.ingestion_scheduler.stop()
 
     app = FastAPI(
         title="DataFoundry Control Plane",
         version=settings.service_version,
         docs_url="/docs",
         openapi_url="/openapi.json",
+        lifespan=_lifespan,
     )
     app.state.settings = settings
     _wire_runtime(app, settings)
@@ -130,12 +156,6 @@ def _register_routers(api_router: APIRouter) -> None:
         from datafoundry.controlplane.api import platforms
 
         api_router.include_router(platforms.router)
-    except ImportError:
-        pass
-    try:  # pragma: no cover
-        from datafoundry.controlplane.api import runs
-
-        api_router.include_router(runs.router)
     except ImportError:
         pass
     try:  # pragma: no cover
@@ -210,6 +230,24 @@ def _register_routers(api_router: APIRouter) -> None:
         )
 
         api_router.include_router(ingestion_quarantine_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import pipelines as pipelines_api
+
+        api_router.include_router(pipelines_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import ingestion_runs as ingestion_runs_api
+
+        api_router.include_router(ingestion_runs_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import runs
+
+        api_router.include_router(runs.router)
     except ImportError:
         pass
 
