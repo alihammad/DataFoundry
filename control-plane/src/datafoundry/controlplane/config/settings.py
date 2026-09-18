@@ -74,6 +74,10 @@ class Settings:
     # API
     api_prefix: str = "/api/v1"
 
+    # In-process ingestion scheduler (R-04). Disabled in tests (the worker is
+    # driven explicitly); enabled in production.
+    ingestion_scheduler_enabled: bool = True
+
     @classmethod
     def from_env(cls) -> Settings:
         env = os.environ
@@ -99,6 +103,7 @@ class Settings:
             service_name=env.get("DF_SERVICE_NAME", "datafoundry-controlplane"),
             service_version=env.get("DF_SERVICE_VERSION", "0.1.0"),
             api_prefix=env.get("DF_API_PREFIX", "/api/v1"),
+            ingestion_scheduler_enabled=_env_bool("DF_INGESTION_SCHEDULER_ENABLED", True),
         )
 
     @property

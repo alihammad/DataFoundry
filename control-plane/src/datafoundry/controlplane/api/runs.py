@@ -140,74 +140,6 @@ def list_platform_runs(platform_id: uuid.UUID, session: Session = Depends(get_db
     return RunHistory(items=items)
 
 
-# -- GET /runs/{run_id} --------------------------------------------------------------
-
-
-@router.get("/runs/{run_id}", response_model=RunView)
-def get_run(run_id: uuid.UUID, session: Session = Depends(get_db)) -> RunView:
-    run = _load_run(session, run_id)
-    steps = [
-        StepView(
-            position=step.position,
-            key=step.key,
-            status=step.status.value,
-            capability=step.capability,
-            attempt=step.attempt,
-            started_at=_iso(step.started_at),
-            finished_at=_iso(step.finished_at),
-            error_detail=step.error_detail,
-            detail=step.detail,
-        )
-        for step in _ordered_steps(session, run_id)
-    ]
-    return RunView(
-        run_id=run.id,
-        platform_id=run.platform_id,
-        status=run.status.value,
-        steps=steps,
-        failure=run.failure_summary,
-    )
-
-
-# -- POST /runs/{run_id}/retry ----------------------------------------------------------
-
-
-@router.post(
-    "/runs/{run_id}/retry",
-    status_code=202,
-    response_model=RecoveryAccepted,
-)
-def retry_run(
-    run_id: uuid.UUID,
-    caller: Caller = Depends(require_action(ACTION_UPDATE_PLATFORM)),
-    session: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings_from_app),
-    gateway=Depends(get_cloud_gateway),
-) -> RecoveryAccepted:
-    run = _load_run(session, run_id)
-    if run.status not in (RunStatus.failed, RunStatus.paused):
-        raise ConflictError(
-            "run_not_retryable",
-            f"run is '{run.status.value}'; retry requires 'failed' or 'paused'",
-        )
-    recovery = RecoveryRunner(session, settings=settings, gateway=gateway)
-    failed_step = next(
-        (s for s in _ordered_steps(session, run_id) if s.status.value == "failed"), None
-    )
-    try:
-        recovery.retry(run_id)
-    except RecoveryError as exc:
-        raise ConflictError("run_not_retryable", str(exc)) from exc
-    AuditService(session).retry_executed(
-        actor=caller.identity,
-        platform_id=run.platform_id,
-        run_id=run.id,
-        from_step=failed_step.key if failed_step else "unknown",
-    )
-    session.refresh(run)
-    return RecoveryAccepted(run_id=run.id, status=run.status.value)
-
-
 # -- POST /runs/{run_id}/rollback ----------------------------------------------------------
 
 
@@ -236,6 +168,68 @@ def rollback_run(
         raise ConflictError("rollback_failed", str(exc)) from exc
     AuditService(session).rollback_executed(
         actor=caller.identity, platform_id=run.platform_id, run_id=run.id
+    )
+    session.refresh(run)
+    return RecoveryAccepted(run_id=run.id, status=run.status.value)
+
+
+# -- shared /runs/{run_id} + retry (dispatched by ingestion_runs router) -------------------
+
+
+def get_deployment_run(run_id: uuid.UUID, session: Session) -> RunView:
+    """Deployment run detail view (shared ``/runs/{run_id}`` path)."""
+    run = _load_run(session, run_id)
+    steps = [
+        StepView(
+            position=step.position,
+            key=step.key,
+            status=step.status.value,
+            capability=step.capability,
+            attempt=step.attempt,
+            started_at=_iso(step.started_at),
+            finished_at=_iso(step.finished_at),
+            error_detail=step.error_detail,
+            detail=step.detail,
+        )
+        for step in _ordered_steps(session, run_id)
+    ]
+    return RunView(
+        run_id=run.id,
+        platform_id=run.platform_id,
+        status=run.status.value,
+        steps=steps,
+        failure=run.failure_summary,
+    )
+
+
+def retry_deployment_run(
+    run_id: uuid.UUID,
+    *,
+    caller: Caller,
+    session: Session,
+    settings: Settings,
+    gateway,
+) -> RecoveryAccepted:
+    """Deployment run retry (shared ``/runs/{run_id}/retry`` path)."""
+    run = _load_run(session, run_id)
+    if run.status not in (RunStatus.failed, RunStatus.paused):
+        raise ConflictError(
+            "run_not_retryable",
+            f"run is '{run.status.value}'; retry requires 'failed' or 'paused'",
+        )
+    recovery = RecoveryRunner(session, settings=settings, gateway=gateway)
+    failed_step = next(
+        (s for s in _ordered_steps(session, run_id) if s.status.value == "failed"), None
+    )
+    try:
+        recovery.retry(run_id)
+    except RecoveryError as exc:
+        raise ConflictError("run_not_retryable", str(exc)) from exc
+    AuditService(session).retry_executed(
+        actor=caller.identity,
+        platform_id=run.platform_id,
+        run_id=run.id,
+        from_step=failed_step.key if failed_step else "unknown",
     )
     session.refresh(run)
     return RecoveryAccepted(run_id=run.id, status=run.status.value)

@@ -12,6 +12,7 @@ from __future__ import annotations
 import typer
 from datafoundry.cli.client import ApiClient, console, error_console, load_config
 from datafoundry.cli.commands.source import _find_source_id
+from rich.table import Table
 
 app = typer.Typer(help="Ingestion: configure sources and trigger runs.")
 
@@ -57,6 +58,38 @@ def ingest_run(
         raise typer.Exit(code=0)
     error_console.print(ApiClient.problem_summary(response))
     raise typer.Exit(code=2)
+
+
+@app.command("history")
+def ingest_history(
+    pipeline_id: str = typer.Option(..., "--pipeline", help="Pipeline id"),
+    api_url: str = typer.Option(None, "--api-url", help="Control-plane base URL"),
+) -> None:
+    """Show execution history for a pipeline (FR-013)."""
+    with ApiClient(base_url=api_url) as client:
+        response = client.get(f"/pipelines/{pipeline_id}/runs")
+    if response.status_code != 200:
+        error_console.print(ApiClient.problem_summary(response))
+        raise typer.Exit(code=2)
+    items = response.json()["items"]
+    table = Table(title="Run history")
+    table.add_column("run_id")
+    table.add_column("trigger")
+    table.add_column("status")
+    table.add_column("outcome")
+    table.add_column("records")
+    table.add_column("duration_s")
+    for item in items:
+        table.add_row(
+            item["run_id"],
+            item["trigger"],
+            item["status"],
+            item.get("outcome") or "",
+            str(item["records_processed"]),
+            f"{item['duration_seconds']:.1f}" if item.get("duration_seconds") else "",
+        )
+    console.print(table)
+    raise typer.Exit(code=0)
 
 
 def _print_errors(response) -> None:
