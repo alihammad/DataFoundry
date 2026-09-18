@@ -231,6 +231,27 @@ def run_transformation(
         gate_report_id = report.id
         gate_passed = report.decision == "promote"
 
+    # Override integration (FR-008): an active override for the blocked run
+    # (report) is the only path past a failed gate. It applies only to the
+    # specific blocked run, expires automatically, and is permanently audited.
+    # The override may target the dataset's current blocked report (granted via
+    # POST /datasets/{id}/promotion/override) so a subsequent promotion attempt
+    # proceeds.
+    overridden = False
+    if not gate_passed:
+        from datafoundry.controlplane.processing.promotion import has_active_override
+
+        candidate_reports = [gate_report_id]
+        current = _current_promotion(session, output.id)
+        if current is not None and current.gate_report_id is not None:
+            candidate_reports.append(current.gate_report_id)
+        for candidate in candidate_reports:
+            if candidate is not None and has_active_override(session, report_id=candidate):
+                overridden = True
+                break
+        if overridden:
+            gate_passed = True
+
     # Record the version.
     version_row = DatasetVersion(
         dataset_id=output.id,

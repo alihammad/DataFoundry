@@ -23,6 +23,7 @@ from datafoundry.cli.commands import gate as gate_cmd
 from datafoundry.cli.commands import ingest as ingest_cmd
 from datafoundry.cli.commands import override as override_cmd
 from datafoundry.cli.commands import pipeline as pipeline_cmd
+from datafoundry.cli.commands import promote as promote_cmd
 from datafoundry.cli.commands import quality as quality_cmd
 from datafoundry.cli.commands import quarantine as quarantine_cmd
 from datafoundry.cli.commands import source as source_cmd
@@ -52,6 +53,7 @@ app.add_typer(ingest_cmd.app, name="ingest")
 app.add_typer(pipeline_cmd.app, name="pipeline")
 app.add_typer(dataset_cmd.app, name="dataset")
 app.add_typer(transform_cmd.app, name="transform")
+app.add_typer(promote_cmd.app, name="promote")
 
 
 def main() -> None:  # pragma: no cover - console entry point
