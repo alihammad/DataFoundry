@@ -127,15 +127,15 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T034 [P] [US4] Contract tests for `GET /datasets/{id}/promotion` (current state + history with gate_report_id + transitioned_at + blocked_reason), `POST /datasets/{id}/promotion/override` (201 active; 422 incomplete; 403 unauthorised + recorded) per contracts/processing-api.md §3 — in `control-plane/tests/contract/test_promotion_api.py`
-- [ ] T035 [P] [US4] Integration test for quickstart Scenario 4: attempt promotion on failed critical gate → refused + BLOCKED; grant override → promotion proceeds + auditable; incomplete override rejected; expired override grants no permission — in `control-plane/tests/integration/test_promotion_override_flow.py`
+- [X] T034 [P] [US4] Contract tests for `GET /datasets/{id}/promotion` (current state + history with gate_report_id + transitioned_at + blocked_reason), `POST /datasets/{id}/promotion/override` (201 active; 422 incomplete; 403 unauthorised + recorded) per contracts/processing-api.md §3 — in `control-plane/tests/contract/test_promotion_api.py`
+- [X] T035 [P] [US4] Integration test for quickstart Scenario 4: attempt promotion on failed critical gate → refused + BLOCKED; grant override → promotion proceeds + auditable; incomplete override rejected; expired override grants no permission — in `control-plane/tests/integration/test_promotion_override_flow.py`
 
 ### Implementation for User Story 4
 
-- [ ] T036 [P] [US4] Implement promotion enforcement in the engine: transition only on passing gate (feature 004), `blocked` marker on failed gate with reason, gate results + transition timestamp recorded (FR-007, US4-AC1, US4-AC3) — in `control-plane/src/datafoundry/controlplane/processing/promotion.py` and `engine.py`
-- [ ] T037 [P] [US4] Implement override integration with feature 004: consume `GateReport` decision (promote/block) as the promotion condition; override applies only to the specific blocked run, expires automatically, permanently audited (FR-008) — in `control-plane/src/datafoundry/controlplane/processing/promotion.py` (consumes feature 004 `GateOverride)
-- [ ] T038 [US4] Implement the promotion API router per contracts/processing-api.md §3: `GET /datasets/{id}/promotion`, `POST /datasets/{id}/promotion/override`; authorisation check; audit writes — in `control-plane/src/datafoundry/controlplane/api/promotion.py`
-- [ ] T039 [US4] Implement CLI `datafoundry promote status/override` commands per quickstart Scenario 4 — in `cli/src/datafoundry/cli/commands/promote.py`
+- [X] T036 [P] [US4] Implement promotion enforcement in the engine: transition only on passing gate (feature 004), `blocked` marker on failed gate with reason, gate results + transition timestamp recorded (FR-007, US4-AC1, US4-AC3) — in `control-plane/src/datafoundry/controlplane/processing/promotion.py` and `engine.py`
+- [X] T037 [P] [US4] Implement override integration with feature 004: consume `GateReport` decision (promote/block) as the promotion condition; override applies only to the specific blocked run, expires automatically, permanently audited (FR-008) — in `control-plane/src/datafoundry/controlplane/processing/promotion.py` (consumes feature 004 `GateOverride)
+- [X] T038 [US4] Implement the promotion API router per contracts/processing-api.md §3: `GET /datasets/{id}/promotion`, `POST /datasets/{id}/promotion/override`; authorisation check; audit writes — in `control-plane/src/datafoundry/controlplane/api/promotion.py`
+- [X] T039 [US4] Implement CLI `datafoundry promote status/override` commands per quickstart Scenario 4 — in `cli/src/datafoundry/cli/commands/promote.py`
 
 **Checkpoint**: US1–US4 all work independently — promotion states enforced with gate decisions and audited overrides as the only bypass
 

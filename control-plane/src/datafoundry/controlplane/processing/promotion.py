@@ -85,3 +85,16 @@ def transition(
     if target_layer == "bronze":
         return PromotionState.bronze_validated
     return layer_validated_state(target_layer)
+
+
+def has_active_override(session, *, report_id) -> bool:
+    """Whether an active override exists for a blocked run (FR-008).
+
+    Consumes feature 004 ``GateOverride``: an override applies only to the
+    specific blocked run (report), expires automatically, and is permanently
+    audited. Returns True when an active (non-expired, non-revoked) override
+    exists for the report.
+    """
+    from datafoundry.controlplane.quality.override import is_override_active
+
+    return is_override_active(session, report_id=report_id)
