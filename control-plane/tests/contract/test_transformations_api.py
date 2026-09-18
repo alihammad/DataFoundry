@@ -39,12 +39,15 @@ def _seed_platform(app):
         return platform.id
 
 
-def _register_dataset(app, client, platform_id, name="customer_silver", layer="silver"):
+def _register_dataset(
+    app, client, platform_id, name="customer_silver", layer="silver", schema_definition=None
+):
     body = {
         "platform_id": str(platform_id),
         "name": name,
         "layer": layer,
-        "schema_definition": {
+        "schema_definition": schema_definition
+        or {
             "customer_id": {"type": "integer", "nullable": False},
             "email": {"type": "string", "nullable": False},
         },
@@ -270,3 +273,142 @@ class TestTransformationRuns:
         assert item["record_count"] == 1
         assert item["promotion_state"] == "silver_validated"
         assert item["ran_at"]
+
+
+def _seed_silver_validated(app, client, platform_id):
+    """Register silver + gold datasets and mark silver silver_validated."""
+    from datafoundry.controlplane.db.models import PromotionState, PromotionStateRow
+
+    silver_id = _register_dataset(app, client, platform_id, name="customer_silver", layer="silver")
+    gold_id = _register_dataset(
+        app,
+        client,
+        platform_id,
+        name="customer_gold",
+        layer="gold",
+        schema_definition={
+            "customer_id": {"type": "integer", "nullable": False},
+            "total_amount": {"type": "float", "nullable": True},
+        },
+    )
+    with app.state.sessionmaker() as sess:
+        sess.add(
+            PromotionStateRow(
+                dataset_id=uuid.UUID(silver_id), state=PromotionState.silver_validated
+            )
+        )
+        sess.commit()
+    return silver_id, gold_id
+
+
+def _gold_transform(platform_id, **overrides):
+    body = {
+        "name": "customer_360_gold_transform",
+        "source_layer": "silver",
+        "target_layer": "gold",
+        "reconciliation_tolerance": 5.0,
+        "logic": {
+            "type": "gold",
+            "aggregation": {
+                "group_by": ["customer_id"],
+                "measures": [{"name": "total_amount", "op": "sum", "column": "amount"}],
+            },
+        },
+    }
+    body.update(overrides)
+    return body
+
+
+class TestGoldTransformation:
+    def test_reconciliation_pass_promotes(self, app, client):
+        platform_id = _seed_platform(app)
+        silver_id, gold_id = _seed_silver_validated(app, client, platform_id)
+        transformation_id = client.post(
+            "/api/v1/transformations", json=_gold_transform(platform_id)
+        ).json()["transformation_id"]
+
+        app.state.processing_gateway.seed_table(
+            silver_id,
+            "silver",
+            pa.schema(
+                [
+                    pa.field("customer_id", pa.int64()),
+                    pa.field("amount", pa.float64()),
+                ]
+            ),
+            [
+                {"customer_id": 1, "amount": 10.0},
+                {"customer_id": 1, "amount": 20.0},
+                {"customer_id": 2, "amount": 5.0},
+            ],
+        )
+
+        response = client.post(
+            f"/api/v1/transformations/{transformation_id}/run",
+            json={"input_dataset_id": silver_id, "environment": "production"},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["output_dataset_id"] == gold_id
+        assert data["record_count"] == 2
+        assert data["promotion_state"] == "gold_validated"
+
+    def test_reconciliation_fail_blocks(self, app, client, make_app):
+        platform_id = _seed_platform(app)
+        silver_id, gold_id = _seed_silver_validated(app, client, platform_id)
+        # Force reconciliation failure on the gold output dataset.
+        app.state.processing_gateway.force_reconciliation_fail(gold_id)
+        transformation_id = client.post(
+            "/api/v1/transformations", json=_gold_transform(platform_id)
+        ).json()["transformation_id"]
+
+        app.state.processing_gateway.seed_table(
+            silver_id,
+            "silver",
+            pa.schema(
+                [
+                    pa.field("customer_id", pa.int64()),
+                    pa.field("amount", pa.float64()),
+                ]
+            ),
+            [{"customer_id": 1, "amount": 10.0}],
+        )
+
+        response = client.post(
+            f"/api/v1/transformations/{transformation_id}/run",
+            json={"input_dataset_id": silver_id, "environment": "production"},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["promotion_state"] == "blocked"
+
+        detail = client.get(f"/api/v1/datasets/{gold_id}").json()
+        assert detail["blocked_reason"]
+        assert "reconciliation" in detail["blocked_reason"]
+
+    def test_non_silver_validated_input_refused(self, app, client):
+        platform_id = _seed_platform(app)
+        silver_id = _register_dataset(
+            app, client, platform_id, name="customer_silver", layer="silver"
+        )
+        _register_dataset(
+            app, client, platform_id, name="customer_gold", layer="gold", schema_definition={}
+        )
+        # Silver not validated: leave no promotion row.
+        transformation_id = client.post(
+            "/api/v1/transformations", json=_gold_transform(platform_id)
+        ).json()["transformation_id"]
+
+        app.state.processing_gateway.seed_table(
+            silver_id,
+            "silver",
+            pa.schema([pa.field("amount", pa.float64())]),
+            [{"amount": 1.0}],
+        )
+
+        response = client.post(
+            f"/api/v1/transformations/{transformation_id}/run",
+            json={"input_dataset_id": silver_id, "environment": "production"},
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["promotion_state"] == "blocked"

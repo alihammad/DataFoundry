@@ -151,6 +151,7 @@ def register_dataset(
         description=definition.description,
         classification=DataClassification(definition.classification),
         refresh_metadata=definition.refresh_metadata,
+        quality_score=definition.quality_score,
     )
     session.add(dataset)
     session.flush()

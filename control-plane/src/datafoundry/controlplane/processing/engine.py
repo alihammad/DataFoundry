@@ -176,6 +176,32 @@ def run_transformation(
         input_table.num_rows > 0 and result.table.num_rows == 0
     ) or f"zero:{output.id}" in getattr(gateway, "_faults", set())
 
+    # Gold rules (FR-010/FR-011): refuse non-SILVER_VALIDATED inputs and
+    # reconcile Gold aggregates against Silver.
+    reconciliation_blocked = False
+    reconciliation_discrepancy = None
+    if transformation.target_layer == DatasetLayer.gold:
+        input_promo = _current_promotion(session, input_dataset.id)
+        if not (input_promo and input_promo.state == PromotionState.silver_validated):
+            reconciliation_blocked = True
+            reconciliation_discrepancy = (
+                f"input {input_dataset.name} is not silver_validated (FR-011)"
+            )
+        elif f"reconcile:{output.id}" in getattr(gateway, "_faults", set()):
+            reconciliation_blocked = True
+            reconciliation_discrepancy = f"simulated reconciliation failure for {output.name}"
+        else:
+            from datafoundry.controlplane.processing.transformations.gold import reconcile
+
+            reconciled, discrepancy = reconcile(
+                input_table=input_table,
+                output_table=result.table,
+                logic=dict(transformation.logic_definition or {}),
+                tolerance=transformation.reconciliation_tolerance,
+            )
+            reconciliation_blocked = not reconciled
+            reconciliation_discrepancy = discrepancy
+
     # Write an atomic snapshot (Iceberg-in-memory, FR-012).
     version = _next_version(session, output.id)
     table_ref = gateway.write_snapshot(
@@ -227,6 +253,9 @@ def run_transformation(
             meta={"reason": row.get("_reason", "malformed record")},
         )
 
+    # Record lineage + catalog registration (FR-014, FR-015, R-07).
+    _record_lineage_and_catalog(session, input_dataset, output, transformation, version, actor=None)
+
     # Promote or block.
     current = _current_promotion(session, output.id)
     blocked_reason = None
@@ -236,9 +265,11 @@ def run_transformation(
         blocked_reason = (
             f"zero-record output from non-empty input for {output.name} (FR-020); pending review"
         )
+    elif reconciliation_blocked:
+        blocked_reason = f"reconciliation failed for {output.name}: {reconciliation_discrepancy}"
     new_state = transition(
         current.state if current else None,
-        gate_passed=gate_passed and not zero_record_suspicious,
+        gate_passed=gate_passed and not zero_record_suspicious and not reconciliation_blocked,
         target_layer=output.layer.value,
         blocked_reason=blocked_reason,
     )
@@ -275,6 +306,62 @@ def _current_version(session: Session, dataset_id: uuid.UUID) -> int | None:
         .order_by(DatasetVersion.version.desc())
         .limit(1)
     ).scalar_one_or_none()
+
+
+def _record_lineage_and_catalog(
+    session: Session,
+    source: Dataset,
+    target: Dataset,
+    transformation: Transformation,
+    version: int,
+    actor: str | None = None,
+) -> None:
+    """Record a lineage link + catalog registration (FR-014, FR-015, R-07)."""
+    from datafoundry.controlplane.db.models import CatalogMetadata, LineageLink
+
+    link = session.execute(
+        select(LineageLink).where(
+            LineageLink.source_dataset_id == source.id,
+            LineageLink.target_dataset_id == target.id,
+            LineageLink.transformation_id == transformation.id,
+        )
+    ).scalar_one_or_none()
+    if link is None:
+        session.add(
+            LineageLink(
+                source_dataset_id=source.id,
+                target_dataset_id=target.id,
+                transformation_id=transformation.id,
+                transformation_version=transformation.version,
+            )
+        )
+
+    catalog = session.execute(
+        select(CatalogMetadata).where(CatalogMetadata.dataset_id == target.id)
+    ).scalar_one_or_none()
+    if catalog is None:
+        session.add(
+            CatalogMetadata(
+                dataset_id=target.id,
+                catalog_endpoint=f"catalog://datasets/{target.id}",
+                metadata_json={
+                    "owner": target.owner_identity,
+                    "steward": target.steward_identity,
+                    "domain": target.domain,
+                    "description": target.description,
+                    "classification": target.classification.value,
+                    "quality_score": target.quality_score,
+                    "layer": target.layer.value,
+                    "refresh_metadata": dict(target.refresh_metadata or {}),
+                    "output_version": version,
+                    "lineage": {
+                        "source_dataset_id": str(source.id),
+                        "transformation_id": str(transformation.id),
+                        "transformation_version": transformation.version,
+                    },
+                },
+            )
+        )
 
 
 # -- US1: Bronze registration, immutability, replay -----------------------------
