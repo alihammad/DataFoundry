@@ -42,6 +42,9 @@ def _wire_runtime(app: FastAPI, settings: Settings) -> None:
     app.state.quality_gateway = build_quality_gateway(settings)
     app.state.source_gateway = build_source_gateway(settings)
     app.state.landing_gateway = build_landing_gateway(settings)
+    from datafoundry.controlplane.processing.gateway import build_processing_gateway
+
+    app.state.processing_gateway = build_processing_gateway(settings)
 
     def _dispatch(run_id: uuid.UUID) -> None:
         def _process() -> None:
@@ -248,6 +251,12 @@ def _register_routers(api_router: APIRouter) -> None:
         from datafoundry.controlplane.api import runs
 
         api_router.include_router(runs.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import datasets as datasets_api
+
+        api_router.include_router(datasets_api.router)
     except ImportError:
         pass
 

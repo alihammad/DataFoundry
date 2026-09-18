@@ -11,11 +11,13 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import pyarrow as pa
 from datafoundry.controlplane.db.models import (
     Dataset,
     DatasetLayer,
     DatasetVersion,
     LayerTransition,
+    PromotionState,
     PromotionStateRow,
     Transformation,
 )
@@ -36,6 +38,52 @@ _TRANSITION_BY_TARGET = {
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def _schema_from_definition(schema_definition: dict[str, Any]):
+    """Build a PyArrow schema from a ``{column: {type, nullable}}`` map."""
+    fields = []
+    for col, spec in (schema_definition or {}).items():
+        col_type = _PA_TYPES.get(_TYPE_MAP.get(spec.get("type"), "string"), pa.string())
+        fields.append(pa.field(col, col_type, nullable=bool(spec.get("nullable", True))))
+    return pa.schema(fields)
+
+
+_PA_TYPES = {
+    "int64": pa.int64(),
+    "string": pa.string(),
+    "float64": pa.float64(),
+    "bool": pa.bool_(),
+    "timestamp": pa.timestamp("us"),
+    "date32": pa.date32(),
+    "binary": pa.binary(),
+}
+
+
+_TYPE_MAP = {
+    "integer": "int64",
+    "string": "string",
+    "float": "float64",
+    "boolean": "bool",
+    "timestamp": "timestamp",
+    "date": "date32",
+    "decimal": "float64",
+    "json": "string",
+    "binary": "binary",
+}
+
+
+def _output_name(name: str, source_layer: DatasetLayer, target_layer: DatasetLayer) -> str:
+    """Derive the output dataset name by swapping the layer suffix.
+
+    ``customer_bronze`` -> ``customer_silver``. If the name has no layer
+    suffix, append the target layer suffix.
+    """
+    for layer in (DatasetLayer.bronze, DatasetLayer.silver, DatasetLayer.gold):
+        suffix = f"_{layer.value}"
+        if name.endswith(suffix):
+            return name[: -len(suffix)] + f"_{target_layer.value}"
+    return f"{name}_{target_layer.value}"
 
 
 def _next_version(session: Session, dataset_id: uuid.UUID) -> int:
@@ -93,17 +141,20 @@ def run_transformation(
     if input_dataset is None:
         raise ValueError(f"no dataset {dataset_id}")
 
-    # Resolve the output dataset: same name in the target layer.
+    # Resolve the output dataset: the input's name with the source-layer suffix
+    # swapped for the target-layer suffix (e.g. customer_bronze -> customer_silver).
+    # Dataset names are unique per platform, so layers use a layer suffix.
+    output_name = _output_name(input_dataset.name, input_dataset.layer, transformation.target_layer)
     output = session.execute(
         select(Dataset).where(
             Dataset.platform_id == input_dataset.platform_id,
-            Dataset.name == input_dataset.name,
+            Dataset.name == output_name,
             Dataset.layer == transformation.target_layer,
         )
     ).scalar_one_or_none()
     if output is None:
         raise ValueError(
-            f"no {transformation.target_layer.value} dataset '{input_dataset.name}' "
+            f"no {transformation.target_layer.value} dataset '{output_name}' "
             f"for transformation {transformation.name}"
         )
 
@@ -213,3 +264,118 @@ def _current_version(session: Session, dataset_id: uuid.UUID) -> int | None:
         .order_by(DatasetVersion.version.desc())
         .limit(1)
     ).scalar_one_or_none()
+
+
+# -- US1: Bronze registration, immutability, replay -----------------------------
+
+
+def register_bronze_dataset(
+    session: Session,
+    *,
+    gateway: Any,
+    dataset_id: uuid.UUID,
+    batch_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    """Register a Bronze dataset from an ingested batch (FR-004).
+
+    Attaches source system, source object, ingestion timestamp, batch id,
+    pipeline id, record count, and ingestion status to the dataset's first
+    version metadata.
+    """
+    dataset = session.get(Dataset, dataset_id)
+    if dataset is None:
+        raise ValueError(f"no dataset {dataset_id}")
+    if dataset.layer != DatasetLayer.bronze:
+        raise ValueError(f"dataset {dataset_id} is not bronze")
+
+    version = _next_version(session, dataset.id)
+    table_ref = gateway.write_snapshot(
+        dataset_id=str(dataset.id),
+        layer="bronze",
+        schema=_schema_from_definition(dataset.schema_definition),
+        rows=[],
+        version=version,
+    )
+    version_row = DatasetVersion(
+        dataset_id=dataset.id,
+        version=version,
+        table_ref=table_ref,
+        record_count=int(batch_metadata.get("record_count", 0)),
+        input_versions={"batch": batch_metadata},
+    )
+    session.add(version_row)
+    session.flush()
+    return {"dataset_id": str(dataset.id), "version": version}
+
+
+def enforce_bronze_immutability(
+    session: Session,
+    *,
+    gateway: Any,
+    dataset_id: uuid.UUID,
+    operation: str,
+) -> None:
+    """Reject and record a Bronze modification/deletion (FR-002, US1-AC2).
+
+    Raises ``BronzeImmutabilityError``; the attempt is recorded as a blocked
+    promotion state with the reason.
+    """
+    dataset = session.get(Dataset, dataset_id)
+    if dataset is None:
+        raise ValueError(f"no dataset {dataset_id}")
+    if dataset.layer != DatasetLayer.bronze:
+        return  # only Bronze is immutable
+
+    # Record the violation and reject (FR-002, US1-AC2). No data is written.
+    current = _current_promotion(session, dataset.id)
+    reason = f"immutability violation: {operation} rejected (FR-002)"
+    if current is None:
+        session.add(
+            PromotionStateRow(
+                dataset_id=dataset.id,
+                state=PromotionState.blocked,
+                blocked_reason=reason,
+            )
+        )
+    else:
+        current.state = PromotionState.blocked
+        current.blocked_reason = reason
+        current.transitioned_at = _utcnow()
+    session.flush()
+    raise BronzeImmutabilityError(
+        f"bronze dataset {dataset.name} is immutable; {operation} rejected"
+    )
+
+
+class BronzeImmutabilityError(RuntimeError):
+    """Raised when a Bronze modification/deletion is attempted (FR-002)."""
+
+
+def replay_bronze(
+    session: Session,
+    *,
+    gateway: Any,
+    dataset_id: uuid.UUID,
+    transformation_id: uuid.UUID,
+    environment: str = "production",
+    quality_gateway: Any | None = None,
+) -> dict[str, Any]:
+    """Replay Bronze into a fresh Silver run without contacting the source.
+
+    Reprocesses the Bronze dataset's current records through the given
+    transformation (FR-003, US1-AC3). Produces a new consistent version;
+    consumers see old or new atomically (FR-012).
+    """
+    dataset = session.get(Dataset, dataset_id)
+    if dataset is None:
+        raise ValueError(f"no dataset {dataset_id}")
+    if dataset.layer != DatasetLayer.bronze:
+        raise ValueError(f"dataset {dataset_id} is not bronze")
+    return run_transformation(
+        session,
+        gateway=gateway,
+        transformation_id=transformation_id,
+        dataset_id=dataset_id,
+        environment=environment,
+        quality_gateway=quality_gateway,
+    )

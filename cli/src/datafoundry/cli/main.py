@@ -15,6 +15,7 @@ import sys
 
 import typer
 from datafoundry.cli.commands import contract as contract_cmd
+from datafoundry.cli.commands import dataset as dataset_cmd
 from datafoundry.cli.commands import deploy as deploy_cmd
 from datafoundry.cli.commands import destroy as destroy_cmd
 from datafoundry.cli.commands import export as export_cmd
@@ -48,6 +49,7 @@ app.add_typer(quality_cmd.app, name="quality")
 app.add_typer(source_cmd.app, name="source")
 app.add_typer(ingest_cmd.app, name="ingest")
 app.add_typer(pipeline_cmd.app, name="pipeline")
+app.add_typer(dataset_cmd.app, name="dataset")
 
 
 def main() -> None:  # pragma: no cover - console entry point
