@@ -1,0 +1,21 @@
+# Ingestion config: CRM relational database -> Bronze (quickstart Scenarios 1-3).
+# Register the source first: datafoundry source add crm-prod --type postgres ...
+apiVersion: datafoundry/v1
+kind: IngestionConfig
+metadata:
+  name: crm-to-bronze
+  source: crm-prod
+source:
+  type: postgres
+  objects:
+    - name: customer
+      mode: incremental
+      cursor_column: updated_at
+    - name: orders
+      mode: full
+schedule: "every 15 minutes"
+target:
+  zone: bronze
+validation:
+  reconciliation_tolerance: 0
+  contract_mode: enforce

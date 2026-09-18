@@ -69,3 +69,66 @@ explicitly (see `tests/conftest.py`).
 The API, config schema, and capability catalog are contract-tested against
 `specs/001-one-click-platform-deployment/contracts/`. Any change to an error
 shape, route, or capability key must update the matching contract and test.
+
+## Ingestion (feature 002)
+
+Self-service data ingestion: register a source, configure tables/files, and
+the platform auto-creates a pipeline that lands validated data in Bronze with
+full batch metadata. Design artifacts in
+`../specs/002-data-ingestion/` (contracts, data model, quickstart).
+
+### Architecture
+
+```text
+src/datafoundry/controlplane/ingestion/
+├── gateway.py        # SourceGateway/LandingGateway ABCs + SimulatedSourceGateway
+├── connectors/       # Connector ABC + registry (postgres, sqlserver, object_storage)
+├── engine.py         # extract -> validate -> land/quarantine batch pipeline
+├── validation.py     # file validation, contract compat, record-count reconciliation
+├── contract.py       # contract inference + change classification
+├── scheduler.py      # in-process background ticker (R-04)
+├── alerts.py         # structured, secret-redacted alerts to pipeline owner
+└── security.py       # redact_ingestion + scan_ingestion_payload (SC-007)
+```
+
+The engine never talks to a source SDK directly — it goes through
+`SourceGateway`. `SimulatedSourceGateway` provides in-memory fake
+PostgreSQL/SQL Server/object-storage inventories with fault-injection hooks
+(`force_auth_fail`, `force_network_unreachable`, `force_schema_change`,
+`force_corrupt_file`) so every connector/validation/quarantine path is
+exercisable offline — no docker/terraform/database required.
+
+### Connector framework
+
+A connector implements the `Connector` ABC (`discover_schema`,
+`test_connection`, `extract`) and is registered in `connectors/registry.py`
+mapping `source_type` → connector class. To add a new source type:
+
+1. Add a connector module under `connectors/` implementing the ABC.
+2. Register it in `connectors/registry.py`.
+3. Add the `source_type` to the ingestion config schema if it needs new
+   fields (`config/ingestion_schema.py`).
+
+No changes to the engine or existing connectors are required (FR-015 spirit).
+
+### Simulated-gateway testing
+
+Tests drive the ingestion worker explicitly via the `process_ingestion_run`
+fixture (the app's dispatcher is a no-op in tests). The scheduler is exercised
+directly via `IngestionScheduler.tick()` — it is disabled in tests
+(`ingestion_scheduler_enabled=False`) and starts in the app lifespan in
+production.
+
+### API surface
+
+- `POST /sources`, `POST /sources/{id}/test`, `GET /sources[/{id}]`
+- `POST /sources/{id}/config`, `GET /sources/{id}/config`
+- `GET /pipelines`, `POST /pipelines/{id}/run|pause|resume`
+- `GET /pipelines/{id}/runs`, `GET /runs/{id}`, `GET /batches/{id}`,
+  `GET /runs/{id}/logs`, `POST /runs/{id}/retry`
+- `GET /sources/{id}/contracts`, `POST /contracts/{id}/approve`
+- `GET /quarantine`
+
+Note: `GET /runs/{id}` and `POST /runs/{id}/retry` are shared with the
+deployment API (feature 001). The ingestion router is registered first and
+dispatches by run type.
