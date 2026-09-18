@@ -493,3 +493,150 @@ class AuditService:
                 "retry_of": str(retry_of),
             },
         )
+
+    # -- feature 003 processing actions -------------------------------------
+
+    def dataset_registered(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        dataset_id: uuid.UUID,
+        name: str,
+        layer: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="dataset.registered",
+            platform_id=platform_id,
+            payload={"dataset_id": str(dataset_id), "name": name, "layer": layer},
+        )
+
+    def transformation_defined(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        transformation_id: uuid.UUID,
+        name: str,
+        version: int,
+        logic_hash: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="transformation.defined",
+            platform_id=platform_id,
+            payload={
+                "transformation_id": str(transformation_id),
+                "name": name,
+                "version": version,
+                "logic_hash": logic_hash,
+            },
+        )
+
+    def transformation_updated(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        transformation_id: uuid.UUID,
+        name: str,
+        version: int,
+        logic_hash: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="transformation.updated",
+            platform_id=platform_id,
+            payload={
+                "transformation_id": str(transformation_id),
+                "name": name,
+                "version": version,
+                "logic_hash": logic_hash,
+            },
+        )
+
+    def transformation_run(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        transformation_id: uuid.UUID,
+        dataset_id: uuid.UUID,
+        output_version: int,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="transformation.run",
+            platform_id=platform_id,
+            payload={
+                "transformation_id": str(transformation_id),
+                "dataset_id": str(dataset_id),
+                "output_version": output_version,
+            },
+        )
+
+    def promotion_transitioned(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        dataset_id: uuid.UUID,
+        state: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="promotion.transitioned",
+            platform_id=platform_id,
+            payload={"dataset_id": str(dataset_id), "state": state},
+        )
+
+    def promotion_blocked(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        dataset_id: uuid.UUID,
+        reason: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="promotion.blocked",
+            platform_id=platform_id,
+            payload={"dataset_id": str(dataset_id), "reason": reason},
+        )
+
+    def promotion_overridden(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        dataset_id: uuid.UUID,
+        override_id: uuid.UUID,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="promotion.overridden",
+            platform_id=platform_id,
+            payload={"dataset_id": str(dataset_id), "override_id": str(override_id)},
+        )
+
+    def lineage_created(
+        self,
+        *,
+        actor: str,
+        platform_id: uuid.UUID,
+        source_dataset_id: uuid.UUID,
+        target_dataset_id: uuid.UUID,
+        transformation_id: uuid.UUID | None,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="lineage.created",
+            platform_id=platform_id,
+            payload={
+                "source_dataset_id": str(source_dataset_id),
+                "target_dataset_id": str(target_dataset_id),
+                "transformation_id": str(transformation_id) if transformation_id else None,
+            },
+        )
