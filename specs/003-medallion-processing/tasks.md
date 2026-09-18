@@ -82,16 +82,16 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T021 [P] [US2] Contract tests for `POST /transformations` (201 with transformation_id/version; 422 all-errors incl. invalid source/target layer, bad logic, secret-scan hit), `GET /transformations/{id}` (logic_definition/logic_hash), `POST /transformations/{id}/run` (output_version, record_count, quarantined_count, gate_report_id, promotion_state), `GET /transformations/{id}/runs` per contracts/processing-api.md §2 — in `control-plane/tests/contract/test_transformations_api.py`
-- [ ] T022 [P] [US2] Integration test for quickstart Scenario 2: define Silver transform, run over Bronze with duplicates/type-errors/nulls, verify clean records in Silver + bad records quarantined with reasons + quality results recorded + dedup per keys + version traceability — in `control-plane/tests/integration/test_silver_transformation_flow.py`
+- [X] T021 [P] [US2] Contract tests for `POST /transformations` (201 with transformation_id/version; 422 all-errors incl. invalid source/target layer, bad logic, secret-scan hit), `GET /transformations/{id}` (logic_definition/logic_hash), `POST /transformations/{id}/run` (output_version, record_count, quarantined_count, gate_report_id, promotion_state), `GET /transformations/{id}/runs` per contracts/processing-api.md §2 — in `control-plane/tests/contract/test_transformations_api.py`
+- [X] T022 [P] [US2] Integration test for quickstart Scenario 2: define Silver transform, run over Bronze with duplicates/type-errors/nulls, verify clean records in Silver + bad records quarantined with reasons + quality results recorded + dedup per keys + version traceability — in `control-plane/tests/integration/test_silver_transformation_flow.py`
 
 ### Implementation for User Story 2
 
-- [ ] T023 [P] [US2] Implement the Silver transformation type (PyArrow): cleansing, type conversion, standardisation, schema enforcement, dedup per `dedup_keys` (US2-AC3), malformed-record routing to quarantine with reasons (FR-006) — in `control-plane/src/datafoundry/controlplane/processing/transformations/silver.py`
-- [ ] T024 [P] [US2] Implement schema evolution handling: tolerate additive changes (new nullable column) per contract classification; breaking changes (type change, column removal) block promotion (FR-013) — in `control-plane/src/datafoundry/controlplane/processing/transformations/silver.py`
-- [ ] T025 [P] [US2] Implement zero-record detection: a transformation producing zero records from a non-empty input is flagged suspicious and blocked from promotion pending review (FR-020) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
-- [ ] T026 [US2] Implement the transformations API router per contracts/processing-api.md §2: `POST /transformations`, `GET /transformations/{id}`, `POST /transformations/{id}/run`, `GET /transformations/{id}/runs`; secret-scan on `logic_definition`; audit writes — in `control-plane/src/datafoundry/controlplane/api/transformations.py`
-- [ ] T027 [US2] Implement CLI `datafoundry transform define/run/history` commands per quickstart Scenario 2 — in `cli/src/datafoundry/cli/commands/transform.py`
+- [X] T023 [P] [US2] Implement the Silver transformation type (PyArrow): cleansing, type conversion, standardisation, schema enforcement, dedup per `dedup_keys` (US2-AC3), malformed-record routing to quarantine with reasons (FR-006) — in `control-plane/src/datafoundry/controlplane/processing/transformations/silver.py`
+- [X] T024 [P] [US2] Implement schema evolution handling: tolerate additive changes (new nullable column) per contract classification; breaking changes (type change, column removal) block promotion (FR-013) — in `control-plane/src/datafoundry/controlplane/processing/transformations/silver.py`
+- [X] T025 [P] [US2] Implement zero-record detection: a transformation producing zero records from a non-empty input is flagged suspicious and blocked from promotion pending review (FR-020) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
+- [X] T026 [US2] Implement the transformations API router per contracts/processing-api.md §2: `POST /transformations`, `GET /transformations/{id}`, `POST /transformations/{id}/run`, `GET /transformations/{id}/runs`; secret-scan on `logic_definition`; audit writes — in `control-plane/src/datafoundry/controlplane/api/transformations.py`
+- [X] T027 [US2] Implement CLI `datafoundry transform define/run/history` commands per quickstart Scenario 2 — in `cli/src/datafoundry/cli/commands/transform.py`
 
 **Checkpoint**: US1 + US2 both work independently — Bronze immutable/replayable, Silver delivers cleaned conformed data with quarantine routing
 

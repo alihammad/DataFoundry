@@ -27,6 +27,7 @@ from datafoundry.cli.commands import quality as quality_cmd
 from datafoundry.cli.commands import quarantine as quarantine_cmd
 from datafoundry.cli.commands import source as source_cmd
 from datafoundry.cli.commands import status as status_cmd
+from datafoundry.cli.commands import transform as transform_cmd
 from datafoundry.cli.commands import validate as validate_cmd
 
 app = typer.Typer(
@@ -50,6 +51,7 @@ app.add_typer(source_cmd.app, name="source")
 app.add_typer(ingest_cmd.app, name="ingest")
 app.add_typer(pipeline_cmd.app, name="pipeline")
 app.add_typer(dataset_cmd.app, name="dataset")
+app.add_typer(transform_cmd.app, name="transform")
 
 
 def main() -> None:  # pragma: no cover - console entry point

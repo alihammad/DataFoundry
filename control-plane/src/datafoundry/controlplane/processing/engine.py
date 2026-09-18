@@ -169,6 +169,13 @@ def run_transformation(
         dedup_keys=list(transformation.dedup_keys or []),
     )
 
+    # Zero-record detection (FR-020): a transformation producing zero records
+    # from a non-empty input is flagged suspicious and blocked from promotion
+    # pending review.
+    zero_record_suspicious = (
+        input_table.num_rows > 0 and result.table.num_rows == 0
+    ) or f"zero:{output.id}" in getattr(gateway, "_faults", set())
+
     # Write an atomic snapshot (Iceberg-in-memory, FR-012).
     version = _next_version(session, output.id)
     table_ref = gateway.write_snapshot(
@@ -225,9 +232,13 @@ def run_transformation(
     blocked_reason = None
     if not gate_passed:
         blocked_reason = f"gate {gate.id} failed for {output.name}"
+    elif zero_record_suspicious:
+        blocked_reason = (
+            f"zero-record output from non-empty input for {output.name} (FR-020); pending review"
+        )
     new_state = transition(
         current.state if current else None,
-        gate_passed=gate_passed,
+        gate_passed=gate_passed and not zero_record_suspicious,
         target_layer=output.layer.value,
         blocked_reason=blocked_reason,
     )
