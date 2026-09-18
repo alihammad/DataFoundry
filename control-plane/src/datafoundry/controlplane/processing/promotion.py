@@ -77,8 +77,11 @@ def transition(
     if not gate_passed:
         return PromotionState.blocked
     if current is None:
-        # Entry: ingestion_validated gates bronze.
-        return PromotionState.bronze if target_layer == "bronze" else PromotionState.blocked
+        # Entry: ingestion_validated gates bronze; a fresh silver/gold dataset
+        # with a passing gate lands at its layer-validated state.
+        if target_layer == "bronze":
+            return PromotionState.bronze
+        return layer_validated_state(target_layer)
     if target_layer == "bronze":
         return PromotionState.bronze_validated
     return layer_validated_state(target_layer)
