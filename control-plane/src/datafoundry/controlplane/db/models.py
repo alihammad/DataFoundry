@@ -205,6 +205,22 @@ class DataClassification(enum.StrEnum):
     highly_restricted = "highly_restricted"
 
 
+# -- processing enums (feature 003) -------------------------------------------
+
+
+class PromotionState(enum.StrEnum):
+    ingested = "ingested"
+    ingestion_validated = "ingestion_validated"
+    bronze = "bronze"
+    bronze_validated = "bronze_validated"
+    silver = "silver"
+    silver_validated = "silver_validated"
+    gold = "gold"
+    gold_validated = "gold_validated"
+    consumable = "consumable"
+    blocked = "blocked"
+
+
 # -- ingestion enums (feature 002) --------------------------------------------
 
 
@@ -480,7 +496,7 @@ class AuditRecord(Base):
 class Dataset(Base):
     __tablename__ = "datasets"
     __table_args__ = (
-        UniqueConstraint("name", name="uq_dataset_name"),
+        UniqueConstraint("platform_id", "name", name="uq_dataset_platform_name"),
         CheckConstraint(
             "length(name) BETWEEN 3 AND 63 AND name = lower(name) "
             "AND substr(name, 1, 1) BETWEEN 'a' AND 'z'",
@@ -489,15 +505,25 @@ class Dataset(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    #: Owning platform. Nullable for backward compatibility with feature 004
+    #: datasets seeded before platform scoping; F003 always sets it.
+    platform_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("platforms.id", name="fk_dataset_platform"), nullable=True
+    )
     name: Mapped[str] = mapped_column(String(63), nullable=False)
     layer: Mapped[DatasetLayer] = mapped_column(
         Enum(DatasetLayer, name="dataset_layer"), nullable=False
     )
     schema_definition: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
     owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    steward_identity: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    domain: Mapped[str | None] = mapped_column(String(63), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     classification: Mapped[DataClassification] = mapped_column(
         Enum(DataClassification, name="data_classification"), nullable=False
     )
+    quality_score: Mapped[float | None] = mapped_column(nullable=True)
+    refresh_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
@@ -510,6 +536,15 @@ class Dataset(Base):
     quarantine_entries: Mapped[list[QuarantineEntry]] = relationship(back_populates="dataset")
     overrides: Mapped[list[GateOverride]] = relationship(back_populates="dataset")
     scores: Mapped[list[QualityScore]] = relationship(back_populates="dataset")
+    versions: Mapped[list[DatasetVersion]] = relationship(back_populates="dataset")
+    promotion_states: Mapped[list[PromotionStateRow]] = relationship(back_populates="dataset")
+    lineage_out: Mapped[list[LineageLink]] = relationship(
+        back_populates="source_dataset", foreign_keys="LineageLink.source_dataset_id"
+    )
+    lineage_in: Mapped[list[LineageLink]] = relationship(
+        back_populates="target_dataset", foreign_keys="LineageLink.target_dataset_id"
+    )
+    catalog_metadata: Mapped[list[CatalogMetadata]] = relationship(back_populates="dataset")
 
 
 # -- feature 004 quality entities ---------------------------------------------
@@ -797,6 +832,154 @@ class QualityScore(Base):
     history_json: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
 
     dataset: Mapped[Dataset] = relationship(back_populates="scores")
+
+
+# -- feature 003 processing entities ------------------------------------------
+
+
+class Transformation(Base):
+    """A version-controlled definition converting input to output (FR-005)."""
+
+    __tablename__ = "transformations"
+    __table_args__ = (
+        UniqueConstraint("name", "version", name="uq_transformation_name_version"),
+        CheckConstraint("version >= 1", name="ck_transformation_version_positive"),
+        CheckConstraint(
+            "length(name) BETWEEN 3 AND 63 AND name = lower(name) "
+            "AND substr(name, 1, 1) BETWEEN 'a' AND 'z'",
+            name="ck_transformation_name_format",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_layer: Mapped[DatasetLayer] = mapped_column(
+        Enum(DatasetLayer, name="dataset_layer"), nullable=False
+    )
+    target_layer: Mapped[DatasetLayer] = mapped_column(
+        Enum(DatasetLayer, name="dataset_layer"), nullable=False
+    )
+    #: Secret-scanned declarative definition (transformation-schema.md).
+    logic_definition: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    logic_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    dedup_keys: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    reconciliation_tolerance: Mapped[float | None] = mapped_column(nullable=True)
+    owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    versions: Mapped[list[DatasetVersion]] = relationship(back_populates="transformation")
+
+
+class DatasetVersion(Base):
+    """An immutable snapshot of a dataset produced by a run (FR-012)."""
+
+    __tablename__ = "dataset_versions"
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "version", name="uq_dataset_version"),
+        CheckConstraint("version >= 1", name="ck_dataset_version_positive"),
+        CheckConstraint("record_count >= 0", name="ck_dataset_version_records_non_negative"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_version_dataset"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    transformation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("transformations.id", name="fk_version_transformation"), nullable=True
+    )
+    #: ``{input_dataset: version}`` (FR-017).
+    input_versions: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    table_ref: Mapped[str] = mapped_column(String(256), nullable=False)
+    record_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quarantined_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    gate_report_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("gate_reports.id", name="fk_version_gate_report"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    dataset: Mapped[Dataset] = relationship(back_populates="versions")
+    transformation: Mapped[Transformation | None] = relationship(back_populates="versions")
+
+
+class PromotionStateRow(Base):
+    """A dataset's position in the promotion state machine (FR-007)."""
+
+    __tablename__ = "promotion_states"
+    __table_args__ = (UniqueConstraint("dataset_id", name="uq_promotion_state_dataset"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_promotion_dataset"), nullable=False
+    )
+    state: Mapped[PromotionState] = mapped_column(
+        Enum(PromotionState, name="promotion_state"), nullable=False
+    )
+    gate_report_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("gate_reports.id", name="fk_promotion_gate_report"), nullable=True
+    )
+    transitioned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    dataset: Mapped[Dataset] = relationship(back_populates="promotion_states")
+
+
+class LineageLink(Base):
+    """A directed relationship between datasets (FR-015, SC-006)."""
+
+    __tablename__ = "lineage_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    source_dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_lineage_source"), nullable=False
+    )
+    target_dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_lineage_target"), nullable=False
+    )
+    transformation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("transformations.id", name="fk_lineage_transformation"), nullable=True
+    )
+    transformation_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    source_dataset: Mapped[Dataset] = relationship(
+        back_populates="lineage_out", foreign_keys=[source_dataset_id]
+    )
+    target_dataset: Mapped[Dataset] = relationship(
+        back_populates="lineage_in", foreign_keys=[target_dataset_id]
+    )
+
+
+class CatalogMetadata(Base):
+    """Catalog registration for a dataset (FR-014, SC-002)."""
+
+    __tablename__ = "catalog_metadata"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_catalog_dataset"), nullable=False
+    )
+    catalog_endpoint: Mapped[str] = mapped_column(String(256), nullable=False)
+    registered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    #: Secret-scanned owner/steward/domain/description/classification/quality/
+    #: lineage/refresh metadata (FR-014).
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+
+    dataset: Mapped[Dataset] = relationship(back_populates="catalog_metadata")
 
 
 # -- feature 002 ingestion entities -------------------------------------------
@@ -1088,6 +1271,7 @@ __all__ = [
     "AuditRecord",
     "Base",
     "BatchStatus",
+    "CatalogMetadata",
     "ConfigSource",
     "ConnectionState",
     "ContractOrigin",
@@ -1097,6 +1281,7 @@ __all__ = [
     "DataSource",
     "Dataset",
     "DatasetLayer",
+    "DatasetVersion",
     "DeploymentRun",
     "DeploymentStep",
     "EnvironmentType",
@@ -1112,12 +1297,15 @@ __all__ = [
     "IngestionRun",
     "IngestionRunStatus",
     "LayerTransition",
+    "LineageLink",
     "OverallStatus",
     "OverrideStatus",
     "PipelineState",
     "Platform",
     "PlatformConfigVersion",
     "PlatformStatus",
+    "PromotionState",
+    "PromotionStateRow",
     "Provider",
     "QualityGate",
     "QualityScore",
@@ -1136,5 +1324,6 @@ __all__ = [
     "TestResult",
     "TestResultStatus",
     "TestSeverity",
+    "Transformation",
     "ViolationClassification",
 ]

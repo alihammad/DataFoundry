@@ -21,6 +21,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pyarrow>=16.0",
     "duckdb>=1.0",
+    "pyiceberg>=0.7",
     "pymssql>=2.3",
 ]
 

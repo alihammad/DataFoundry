@@ -99,6 +99,7 @@ def make_app(make_settings, session_factory):
         application.state.sessionmaker = session_factory
         # Tests drive the worker explicitly; no background dispatch.
         application.state.dispatcher = lambda run_id: None
+        application.state.ingestion_dispatcher = lambda run_id: None
 
         def _override_get_db() -> Iterator[Session]:
             with session_factory() as sess:
@@ -123,6 +124,7 @@ def app(settings: Settings, session_factory: sessionmaker[Session]):
     application.state.sessionmaker = session_factory
     # Tests drive the worker explicitly; no background dispatch.
     application.state.dispatcher = lambda run_id: None
+    application.state.ingestion_dispatcher = lambda run_id: None
 
     def _override_get_db() -> Iterator[Session]:
         with session_factory() as sess:
@@ -183,10 +185,26 @@ def dataset(session_factory: sessionmaker[Session]):
     """
 
     def _make(name: str = "customer", layer: str = "silver"):
-        from datafoundry.controlplane.db.models import Dataset
+        from datafoundry.controlplane.db.models import (
+            Dataset,
+            EnvironmentType,
+            Platform,
+            Provider,
+        )
 
         with session_factory() as sess:
+            platform = Platform(
+                name="crm-platform",
+                provider=Provider.aws,
+                cloud_scope_id="scope-1",
+                region="us-east-1",
+                environment_type=EnvironmentType.test,
+                owner_identity="dev@datafoundry.local",
+            )
+            sess.add(platform)
+            sess.flush()
             row = Dataset(
+                platform_id=platform.id,
                 name=name,
                 layer=layer,
                 schema_definition={"customer_id": {"type": "integer", "nullable": False}},
@@ -235,6 +253,41 @@ def simulated_source_gateway():
     from datafoundry.controlplane.ingestion.gateway import SimulatedSourceGateway
 
     return SimulatedSourceGateway()
+
+
+@pytest.fixture()
+def simulated_processing_gateway():
+    """In-memory processing gateway for offline transformation tests."""
+    from datafoundry.controlplane.processing.gateway import SimulatedProcessingGateway
+
+    return SimulatedProcessingGateway()
+
+
+@pytest.fixture()
+def process_processing_run(app):
+    """Drive the processing engine explicitly (tests use a no-op dispatcher).
+
+    Returns a callable ``process_processing_run(transformation_id, dataset_id)``
+    executing the transformation against the app's processing gateway.
+    """
+
+    def _process(transformation_id, dataset_id):
+        from datafoundry.controlplane.processing.engine import run_transformation
+
+        session = app.state.sessionmaker()
+        try:
+            result = run_transformation(
+                session,
+                gateway=app.state.processing_gateway,
+                transformation_id=transformation_id,
+                dataset_id=dataset_id,
+            )
+            session.commit()
+            return result
+        finally:
+            session.close()
+
+    return _process
 
 
 @pytest.fixture()
