@@ -59,16 +59,16 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T014 [P] [US1] Contract tests for `POST /datasets` (201 with dataset_id; 422 all-errors incl. unknown layer, bad name, missing owner), `GET /datasets`, `GET /datasets/{id}` (detail with promotion_state + gate results + transition timestamp) per contracts/processing-api.md §1 — in `control-plane/tests/contract/test_datasets_api.py`
-- [ ] T015 [P] [US1] Integration test for quickstart Scenario 1: register Bronze dataset from ingested batch, verify full batch metadata (FR-004), verify immutability-violation attempt rejected + recorded (FR-002), replay Bronze into fresh Silver run without source access (FR-003) — in `control-plane/tests/integration/test_bronze_immutability_flow.py`
+- [X] T014 [P] [US1] Contract tests for `POST /datasets` (201 with dataset_id; 422 all-errors incl. unknown layer, bad name, missing owner), `GET /datasets`, `GET /datasets/{id}` (detail with promotion_state + gate results + transition timestamp) per contracts/processing-api.md §1 — in `control-plane/tests/contract/test_datasets_api.py`
+- [X] T015 [P] [US1] Integration test for quickstart Scenario 1: register Bronze dataset from ingested batch, verify full batch metadata (FR-004), verify immutability-violation attempt rejected + recorded (FR-002), replay Bronze into fresh Silver run without source access (FR-003) — in `control-plane/tests/integration/test_bronze_immutability_flow.py`
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Implement Bronze dataset registration + metadata: register a Bronze dataset from an ingested batch, attach source system, source object, ingestion timestamp, batch id, pipeline id, record count, ingestion status (FR-004) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
-- [ ] T017 [P] [US1] Implement Bronze immutability enforcement: reject and record any modification/deletion outside an approved retention policy (FR-002, US1-AC2) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
-- [ ] T018 [US1] Implement Bronze replay: reprocess downstream Silver from Bronze data without contacting the source system (FR-003, US1-AC3); replay produces a new consistent version, consumers see old or new atomically (FR-012) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
-- [ ] T019 [US1] Implement the datasets API router per contracts/processing-api.md §1: `POST /datasets`, `GET /datasets`, `GET /datasets/{id}`; secret-scan on `metadata_json`; audit writes — in `control-plane/src/datafoundry/controlplane/api/datasets.py`
-- [ ] T020 [US1] Implement CLI `datafoundry dataset register/list/status` commands (typer) per quickstart Scenario 1 — in `cli/src/datafoundry/cli/commands/dataset.py`
+- [X] T016 [P] [US1] Implement Bronze dataset registration + metadata: register a Bronze dataset from an ingested batch, attach source system, source object, ingestion timestamp, batch id, pipeline id, record count, ingestion status (FR-004) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
+- [X] T017 [P] [US1] Implement Bronze immutability enforcement: reject and record any modification/deletion outside an approved retention policy (FR-002, US1-AC2) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
+- [X] T018 [US1] Implement Bronze replay: reprocess downstream Silver from Bronze data without contacting the source system (FR-003, US1-AC3); replay produces a new consistent version, consumers see old or new atomically (FR-012) — in `control-plane/src/datafoundry/controlplane/processing/engine.py`
+- [X] T019 [US1] Implement the datasets API router per contracts/processing-api.md §1: `POST /datasets`, `GET /datasets`, `GET /datasets/{id}`; secret-scan on `metadata_json`; audit writes — in `control-plane/src/datafoundry/controlplane/api/datasets.py`
+- [X] T020 [US1] Implement CLI `datafoundry dataset register/list/status` commands (typer) per quickstart Scenario 1 — in `cli/src/datafoundry/cli/commands/dataset.py`
 
 **Checkpoint**: US1 fully functional — Bronze is immutable, replayable, and carries full batch metadata
 

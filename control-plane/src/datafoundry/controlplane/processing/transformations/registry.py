@@ -32,6 +32,7 @@ default_registry = TransformationRegistry()
 
 def resolve_transformation(logic_type: str) -> Transformation:
     """Resolve a transformation implementation by ``logic.type``."""
+    register_all()
     return default_registry.resolve(logic_type)
 
 

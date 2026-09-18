@@ -66,6 +66,11 @@ def get_ingestion_dispatcher(request: Request) -> Callable[[Any], None]:
     return request.app.state.ingestion_dispatcher
 
 
+def get_processing_gateway(request: Request) -> Any:
+    """Processing gateway for transformations/promotion (simulated)."""
+    return request.app.state.processing_gateway
+
+
 def get_landing_gateway(request: Request) -> Any:
     """Landing gateway for Bronze ingestion writes (simulated)."""
     return request.app.state.landing_gateway
