@@ -82,6 +82,10 @@ class TestPlatformConfigSchema:
             if path.name == "bad-config.yaml":
                 continue  # semantically invalid, covered below
             raw = yaml.safe_load(path.read_text())
+            # Ingestion configs (feature 002) live in the same examples dir but
+            # use a different kind; they are validated by the ingestion schema.
+            if raw.get("kind") != "PlatformConfig":
+                continue
             PlatformConfig.model_validate(raw)
 
     def test_bad_config_is_structurally_valid(self):

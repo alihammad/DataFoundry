@@ -149,11 +149,11 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 **Purpose**: Docs, quickstart validation, performance verification, security hardening
 
-- [ ] T044 [P] Extend the `terraform/aws/storage/` and `terraform/gcp/storage/` zone contract to create the `quarantine/` prefix alongside Bronze/Silver/Gold (per plan.md Structure Decision) — in `terraform/aws/storage/` and `terraform/gcp/storage/`
-- [ ] T045 [P] Write the feature 002 developer guide: ingestion architecture, connector framework, how to add a source type (registry pattern), simulated-gateway testing — in `control-plane/README.md` (append) and `specs/002-data-ingestion/quickstart.md` (verify)
-- [ ] T046 Performance verification: connection test + schema discovery < 1 minute for typical schemas (FR-004, US1-AC1); incremental zero-duplicate run over ≥1M-record dataset (SC-005); record results in `docs/runbooks/performance-baseline.md`
-- [ ] T047 [P] Security hardening pass: verify zero plaintext credentials in config exports, logs, run/batch/error payloads, and UI responses (SC-007); secret-scan on every ingestion write/export path; encrypted-channel enforcement (FR-016)
-- [ ] T048 Run full quickstart.md validation (Scenarios 1–6) against a clean checkout with the simulated gateway and fix any gaps
+- [X] T044 [P] Extend the `terraform/aws/storage/` and `terraform/gcp/storage/` zone contract to create the `quarantine/` prefix alongside Bronze/Silver/Gold (per plan.md Structure Decision) — in `terraform/aws/storage/` and `terraform/gcp/storage/`
+- [X] T045 [P] Write the feature 002 developer guide: ingestion architecture, connector framework, how to add a source type (registry pattern), simulated-gateway testing — in `control-plane/README.md` (append) and `specs/002-data-ingestion/quickstart.md` (verify)
+- [X] T046 Performance verification: connection test + schema discovery < 1 minute for typical schemas (FR-004, US1-AC1); incremental zero-duplicate run over ≥1M-record dataset (SC-005); record results in `docs/runbooks/performance-baseline.md`
+- [X] T047 [P] Security hardening pass: verify zero plaintext credentials in config exports, logs, run/batch/error payloads, and UI responses (SC-007); secret-scan on every ingestion write/export path; encrypted-channel enforcement (FR-016)
+- [X] T048 Run full quickstart.md validation (Scenarios 1–6) against a clean checkout with the simulated gateway and fix any gaps
 
 ---
 

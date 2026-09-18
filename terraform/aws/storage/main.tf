@@ -69,8 +69,9 @@ resource "aws_s3_bucket_object_lock_configuration" "platform" {
 }
 
 # Zone prefix markers (FR-005 — the control-plane init job maintains these).
+# quarantine/ added for feature 002 ingestion quarantine routing (US2-AC2).
 resource "aws_s3_object" "zone_markers" {
-  for_each = toset(["bronze", "silver", "gold"])
+  for_each = toset(["bronze", "silver", "gold", "quarantine"])
 
   bucket  = aws_s3_bucket.platform.id
   key     = "${each.value}/.datafoundry-keep"

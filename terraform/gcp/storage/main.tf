@@ -73,7 +73,7 @@ resource "google_storage_bucket" "bronze" {
 }
 
 resource "google_storage_bucket_object" "zone_markers" {
-  for_each = toset(["bronze", "silver", "gold"])
+  for_each = toset(["bronze", "silver", "gold", "quarantine"])
 
   bucket  = google_storage_bucket.platform.name
   name    = "${each.value}/.datafoundry-keep"

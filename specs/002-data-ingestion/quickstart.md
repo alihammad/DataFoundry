@@ -35,10 +35,11 @@ datafoundry source test crm-prod
 
 **Expected**: `ok: true` within one minute; discovered schema lists `customer` and `orders` tables with columns/types/nullability (US1-AC1).
 
-Negative test (US1-AC4):
+Negative test (US1-AC4): force an auth failure on the simulated gateway
+(`app.state.source_gateway.force_auth_fail(source_id)` in tests) and re-test:
 
 ```bash
-datafoundry source test crm-prod --force-auth-fail   # simulated
+datafoundry source test crm-prod
 # Expected: ok: false, detail: authentication_failed, actionable message; no config saved
 ```
 
@@ -47,7 +48,7 @@ datafoundry source test crm-prod --force-auth-fail   # simulated
 ## Scenario 2: Configure ingestion and run it (US1, FR-002, FR-003, FR-018)
 
 ```bash
-datafoundry source configure crm-prod --config configs/crm-to-bronze.yaml
+datafoundry source configure crm-prod --config ../platform-configs/examples/crm-to-bronze.yaml
 # config selects customer (incremental, cursor updated_at) + orders (full),
 # schedule "every 15 minutes", target bronze.
 ```
@@ -81,7 +82,7 @@ datafoundry ingest run --pipeline <pipeline_id>   # second run
 
 ```bash
 datafoundry source add events-drop --type object_storage --location s3://acme-landing/events --format parquet
-datafoundry source configure events-drop --config configs/events-to-bronze.yaml
+datafoundry source configure events-drop --config ../platform-configs/examples/events-to-bronze.yaml
 datafoundry ingest run --pipeline <events_pipeline_id>
 ```
 
@@ -114,7 +115,8 @@ datafoundry pipeline pause <pipeline_id>
 # schedule elapses -> no run started, state visible as paused (US4-AC3)
 datafoundry pipeline resume <pipeline_id>
 # force a failure, then:
-datafoundry ingest retry --run <failed_run_id>
+datafoundry pipeline retry <failed_run_id>
+# or: datafoundry ingest history --pipeline <pipeline_id>  (FR-013)
 ```
 
 **Expected**: retry re-processes only what's needed, no duplicate already-ingested records (US4-AC2, R-06); history and logs reflect every action accurately (FR-013).

@@ -1,0 +1,16 @@
+# Ingestion config: object-storage file drop -> Bronze (quickstart Scenario 4).
+# Register the source first: datafoundry source add events-drop --type object_storage ...
+apiVersion: datafoundry/v1
+kind: IngestionConfig
+metadata:
+  name: events-to-bronze
+  source: events-drop
+source:
+  type: object_storage
+  filePattern: "*.parquet"
+schedule: "every 15 minutes"
+target:
+  zone: bronze
+validation:
+  reconciliation_tolerance: 0
+  contract_mode: enforce
