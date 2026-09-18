@@ -30,6 +30,10 @@ def dataset_register(
     steward: str = typer.Option(None, "--steward", help="Steward identity"),
     domain: str = typer.Option(None, "--domain", help="Business domain"),
     description: str = typer.Option(None, "--description", help="Description"),
+    quality_score: float = typer.Option(None, "--quality-score", help="Quality score 0-100 (Gold)"),
+    refresh: str = typer.Option(
+        None, "--refresh", help='Refresh metadata JSON, e.g. \'{"schedule":"daily"}\''
+    ),
     api_url: str = typer.Option(None, "--api-url", help="Control-plane base URL"),
 ) -> None:
     """Register a dataset (FR-014)."""
@@ -45,6 +49,8 @@ def dataset_register(
         "steward_identity": steward,
         "domain": domain,
         "description": description,
+        "quality_score": quality_score,
+        "refresh_metadata": json.loads(refresh) if refresh else None,
     }
     with ApiClient(base_url=api_url) as client:
         response = client.post("/datasets", json_body=body)

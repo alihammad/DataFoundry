@@ -105,15 +105,15 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T028 [P] [US3] Contract tests for Gold dataset registration (201; Gold requires owner/description/quality_score/refresh_metadata before CONSUMABLE — FR-009) and Gold transformation run (reconciliation pass → GOLD_VALIDATED → CONSUMABLE; reconciliation fail → blocked + discrepancy reported; non-SILVER_VALIDATED input refused — FR-010, FR-011) per contracts/processing-api.md §1/§2 — in `control-plane/tests/contract/test_transformations_api.py`
-- [ ] T029 [P] [US3] Integration test for quickstart Scenario 3: define Gold aggregate over Silver with known totals, run build, verify reconciliation + ownership metadata + catalog discoverability; reconciliation failure blocks CONSUMABLE + reports discrepancy; non-SILVER_VALIDATED input refused — in `control-plane/tests/integration/test_gold_reconciliation_flow.py`
+- [X] T028 [P] [US3] Contract tests for Gold dataset registration (201; Gold requires owner/description/quality_score/refresh_metadata before CONSUMABLE — FR-009) and Gold transformation run (reconciliation pass → GOLD_VALIDATED → CONSUMABLE; reconciliation fail → blocked + discrepancy reported; non-SILVER_VALIDATED input refused — FR-010, FR-011) per contracts/processing-api.md §1/§2 — in `control-plane/tests/contract/test_transformations_api.py`
+- [X] T029 [P] [US3] Integration test for quickstart Scenario 3: define Gold aggregate over Silver with known totals, run build, verify reconciliation + ownership metadata + catalog discoverability; reconciliation failure blocks CONSUMABLE + reports discrepancy; non-SILVER_VALIDATED input refused — in `control-plane/tests/integration/test_gold_reconciliation_flow.py`
 
 ### Implementation for User Story 3
 
-- [ ] T030 [P] [US3] Implement the Gold transformation type (DuckDB): aggregation (group_by + measures), reconciliation against Silver inputs within `reconciliation_tolerance` (FR-010, US3-AC1) — in `control-plane/src/datafoundry/controlplane/processing/transformations/gold.py`
-- [ ] T031 [P] [US3] Implement Gold metadata + catalog registration: owner, business definition, quality rules, business metadata required before CONSUMABLE (FR-010); refuse non-SILVER_VALIDATED inputs (FR-011); reconciliation failure blocks promotion + reports discrepancy (FR-010, US3-AC3) — in `control-plane/src/datafoundry/controlplane/processing/catalog.py` and `engine.py`
-- [ ] T032 [US3] Implement catalog registration per research R-07: register every dataset in the catalog with owner, steward, domain, description, classification, quality score, lineage, refresh metadata (FR-014); Gold discoverable in catalog (US3-AC2) — in `control-plane/src/datafoundry/controlplane/processing/catalog.py`
-- [ ] T033 [US3] Implement CLI `datafoundry dataset register` Gold variant (owner/description/quality-score/refresh) per quickstart Scenario 3 — in `cli/src/datafoundry/cli/commands/dataset.py`
+- [X] T030 [P] [US3] Implement the Gold transformation type (DuckDB): aggregation (group_by + measures), reconciliation against Silver inputs within `reconciliation_tolerance` (FR-010, US3-AC1) — in `control-plane/src/datafoundry/controlplane/processing/transformations/gold.py`
+- [X] T031 [P] [US3] Implement Gold metadata + catalog registration: owner, business definition, quality rules, business metadata required before CONSUMABLE (FR-010); refuse non-SILVER_VALIDATED inputs (FR-011); reconciliation failure blocks promotion + reports discrepancy (FR-010, US3-AC3) — in `control-plane/src/datafoundry/controlplane/processing/catalog.py` and `engine.py`
+- [X] T032 [US3] Implement catalog registration per research R-07: register every dataset in the catalog with owner, steward, domain, description, classification, quality score, lineage, refresh metadata (FR-014); Gold discoverable in catalog (US3-AC2) — in `control-plane/src/datafoundry/controlplane/processing/catalog.py`
+- [X] T033 [US3] Implement CLI `datafoundry dataset register` Gold variant (owner/description/quality-score/refresh) per quickstart Scenario 3 — in `cli/src/datafoundry/cli/commands/dataset.py`
 
 **Checkpoint**: US1 + US2 + US3 all work independently — Bronze, Silver, and Gold layers with reconciliation and catalog discoverability
 

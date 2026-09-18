@@ -43,6 +43,7 @@ class DatasetDefinition(_StrictModel):
     description: str | None = None
     classification: Classification
     refresh_metadata: dict[str, Any] | None = None
+    quality_score: float | None = Field(default=None, ge=0, le=100)
 
     @model_validator(mode="after")
     def _validate_schema_types(self) -> DatasetDefinition:
