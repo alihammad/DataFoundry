@@ -66,6 +66,7 @@ class TransformationDefinition(_StrictModel):
     dedup_keys: list[str] = Field(default_factory=list)
     reconciliation_tolerance: float | None = Field(default=None, ge=0)
     logic: SilverLogic | GoldLogic
+    git_ref: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
     def _validate_layers(self) -> TransformationDefinition:
@@ -117,6 +118,15 @@ def _raise_or_return(errors: list[str]) -> TransformationDefinition:
 
 def _format_findings(findings: list[SecretFinding]) -> list[str]:
     return [f"secret-scan: {f.path} ({f.kind})" for f in findings]
+
+
+def gitops_provenance(git_ref: str | None) -> dict[str, str]:
+    """GitOps provenance marker for a transformation definition (FR-005).
+
+    Mirrors ``config/gitops.py``: git-sourced definitions record
+    ``source=git`` + ``git_ref``; API-defined ones record ``source=api``.
+    """
+    return {"source": "git" if git_ref else "api", "git_ref": git_ref or ""}
 
 
 def _format_pydantic(exc: Exception) -> list[str]:

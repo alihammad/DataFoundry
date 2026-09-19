@@ -167,8 +167,8 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 **Purpose**: GitOps versioning, cloud-independence verification, and final validation
 
-- [ ] T046 [P] Implement GitOps versioning for transformation definitions through the existing `config/gitops.py` pattern (FR-005, FR-017); every run records transformation version, input versions, output version, gate results, quarantined counts (FR-017); prior runs traceable to producing version (US2-AC4) — in `control-plane/src/datafoundry/controlplane/config/transformation_schema.py` and `config/gitops.py`
-- [ ] T047 [P] Verify cloud-independence of layer model, transformation definitions, promotion states, and metadata (FR-018, SC-007): identical behaviour on both clouds — extend `scripts/parity_checklist.py` with a processing parity check (mirroring feature 002 SC-003 pattern)
-- [ ] T048 [P] Run full test suite + ruff clean: `control-plane/.venv/bin/python -m pytest` (all unit + contract + integration) and `ruff check` + `ruff format` clean across control-plane + cli; verify `alembic upgrade head --sql` offline SQL — final gate.
+- [X] T046 [P] Implement GitOps versioning for transformation definitions through the existing `config/gitops.py` pattern (FR-005, FR-017); every run records transformation version, input versions, output version, gate results, quarantined counts (FR-017); prior runs traceable to producing version (US2-AC4) — in `control-plane/src/datafoundry/controlplane/config/transformation_schema.py` and `config/gitops.py`
+- [X] T047 [P] Verify cloud-independence of layer model, transformation definitions, promotion states, and metadata (FR-018, SC-007): identical behaviour on both clouds — extend `scripts/parity_checklist.py` with a processing parity check (mirroring feature 002 SC-003 pattern)
+- [X] T048 [P] Run full test suite + ruff clean: `control-plane/.venv/bin/python -m pytest` (all unit + contract + integration) and `ruff check` + `ruff format` clean across control-plane + cli; verify `alembic upgrade head --sql` offline SQL — final gate.
 
 **Checkpoint (Final)**: Feature 003 complete — all 5 user stories independently testable, ruff clean, tests pass, cloud-independent processing verified

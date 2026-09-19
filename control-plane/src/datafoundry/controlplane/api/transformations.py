@@ -31,9 +31,11 @@ from datafoundry.controlplane.api.errors import (
 from datafoundry.controlplane.audit.service import AuditService
 from datafoundry.controlplane.config.transformation_schema import (
     TransformationConfigError,
+    gitops_provenance,
     validate_transformation_definition,
 )
 from datafoundry.controlplane.db.models import (
+    ConfigSource,
     DatasetLayer,
     DatasetVersion,
     PromotionStateRow,
@@ -148,6 +150,7 @@ def define_transformation(
     version = (latest or 0) + 1
 
     logic_hash = _logic_hash(definition.logic.model_dump())
+    provenance = gitops_provenance(definition.git_ref)
     transformation = Transformation(
         name=definition.name,
         version=version,
@@ -158,6 +161,8 @@ def define_transformation(
         dedup_keys=definition.dedup_keys,
         reconciliation_tolerance=definition.reconciliation_tolerance,
         owner_identity=caller.identity,
+        source=ConfigSource(provenance["source"]),
+        git_ref=definition.git_ref,
     )
     session.add(transformation)
     session.flush()
