@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 
 import typer
+from datafoundry.cli.commands import classify as classify_cmd
 from datafoundry.cli.commands import contract as contract_cmd
 from datafoundry.cli.commands import dataset as dataset_cmd
 from datafoundry.cli.commands import deploy as deploy_cmd
@@ -24,6 +25,7 @@ from datafoundry.cli.commands import ingest as ingest_cmd
 from datafoundry.cli.commands import override as override_cmd
 from datafoundry.cli.commands import pipeline as pipeline_cmd
 from datafoundry.cli.commands import promote as promote_cmd
+from datafoundry.cli.commands import protect as protect_cmd
 from datafoundry.cli.commands import quality as quality_cmd
 from datafoundry.cli.commands import quarantine as quarantine_cmd
 from datafoundry.cli.commands import query as query_cmd
@@ -56,6 +58,8 @@ app.add_typer(dataset_cmd.app, name="dataset")
 app.add_typer(transform_cmd.app, name="transform")
 app.add_typer(promote_cmd.app, name="promote")
 app.add_typer(query_cmd.app, name="query")
+app.add_typer(classify_cmd.app, name="classify")
+app.add_typer(protect_cmd.app, name="protect")
 
 
 def main() -> None:  # pragma: no cover - console entry point

@@ -45,6 +45,9 @@ def _wire_runtime(app: FastAPI, settings: Settings) -> None:
     from datafoundry.controlplane.processing.gateway import build_processing_gateway
 
     app.state.processing_gateway = build_processing_gateway(settings)
+    from datafoundry.controlplane.security.gateway import build_security_gateway
+
+    app.state.security_gateway = build_security_gateway(settings)
 
     def _dispatch(run_id: uuid.UUID) -> None:
         def _process() -> None:
@@ -281,6 +284,18 @@ def _register_routers(api_router: APIRouter) -> None:
         from datafoundry.controlplane.api import query as query_api
 
         api_router.include_router(query_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import classification as classification_api
+
+        api_router.include_router(classification_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import protection as protection_api
+
+        api_router.include_router(protection_api.router)
     except ImportError:
         pass
 

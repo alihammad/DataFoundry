@@ -63,14 +63,14 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T018 [P] [US1] Contract tests for `POST /datasets/{id}/classification` (201 with classification_id/level/policy_id; 422 invalid level/unknown policy; 403 unauthorised downgrade), `GET /datasets/{id}/classification` (level + per-column protection metadata, never key material) per contracts/security-api.md §1 — in `control-plane/tests/contract/test_classification_api.py`
-- [ ] T019 [P] [US1] Integration test for quickstart Scenario 1: classify RESTRICTED with sensitive email column, ingest, verify email protected per policy in Bronze/Silver/Gold while non-sensitive columns queryable — in `control-plane/tests/integration/test_classification_protection_flow.py`
+- [X] T018 [P] [US1] Contract tests for `POST /datasets/{id}/classification` (201 with classification_id/level/policy_id; 422 invalid level/unknown policy; 403 unauthorised downgrade), `GET /datasets/{id}/classification` (level + per-column protection metadata, never key material) per contracts/security-api.md §1 — in `control-plane/tests/contract/test_classification_api.py`
+- [X] T019 [P] [US1] Integration test for quickstart Scenario 1: classify RESTRICTED with sensitive email column, ingest, verify email protected per policy in Bronze/Silver/Gold while non-sensitive columns queryable — in `control-plane/tests/integration/test_classification_protection_flow.py`
 
 ### Implementation for User Story 1
 
-- [ ] T020 [P] [US1] Implement the classification API router per contracts/security-api.md §1: `POST /datasets/{id}/classification`, `GET /datasets/{id}/classification`; downgrade authorisation (FR-020); audit writes — in `control-plane/src/datafoundry/controlplane/api/classification.py`
-- [ ] T021 [P] [US1] Implement the protection policy API router per contracts/security-api.md §2: `POST /policies`, `GET /policies`; secret-scan on `name`; audit writes — in `control-plane/src/datafoundry/controlplane/api/protection.py`
-- [ ] T022 [US1] Implement CLI `datafoundry classify set/get` and `datafoundry protect apply/export` commands per quickstart Scenario 1 — in `cli/src/datafoundry/cli/commands/classify.py` and `cli/src/datafoundry/cli/commands/protect.py`
+- [X] T020 [P] [US1] Implement the classification API router per contracts/security-api.md §1: `POST /datasets/{id}/classification`, `GET /datasets/{id}/classification`; downgrade authorisation (FR-020); audit writes — in `control-plane/src/datafoundry/controlplane/api/classification.py`
+- [X] T021 [P] [US1] Implement the protection policy API router per contracts/security-api.md §2: `POST /policies`, `GET /policies`; secret-scan on `name`; audit writes — in `control-plane/src/datafoundry/controlplane/api/protection.py`
+- [X] T022 [US1] Implement CLI `datafoundry classify set/get` and `datafoundry protect apply/export` commands per quickstart Scenario 1 — in `cli/src/datafoundry/cli/commands/classify.py` and `cli/src/datafoundry/cli/commands/protect.py`
 
 **Checkpoint**: US1 fully functional — classification drives protection policy with per-column protection metadata in the catalog
 

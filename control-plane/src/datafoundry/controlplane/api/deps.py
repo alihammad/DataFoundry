@@ -71,6 +71,11 @@ def get_processing_gateway(request: Request) -> Any:
     return request.app.state.processing_gateway
 
 
+def get_security_gateway(request: Request) -> Any:
+    """Security gateway for classification/protection/keys/tokens (simulated)."""
+    return request.app.state.security_gateway
+
+
 def get_landing_gateway(request: Request) -> Any:
     """Landing gateway for Bronze ingestion writes (simulated)."""
     return request.app.state.landing_gateway
