@@ -26,6 +26,7 @@ from datafoundry.cli.commands import pipeline as pipeline_cmd
 from datafoundry.cli.commands import promote as promote_cmd
 from datafoundry.cli.commands import quality as quality_cmd
 from datafoundry.cli.commands import quarantine as quarantine_cmd
+from datafoundry.cli.commands import query as query_cmd
 from datafoundry.cli.commands import source as source_cmd
 from datafoundry.cli.commands import status as status_cmd
 from datafoundry.cli.commands import transform as transform_cmd
@@ -54,6 +55,7 @@ app.add_typer(pipeline_cmd.app, name="pipeline")
 app.add_typer(dataset_cmd.app, name="dataset")
 app.add_typer(transform_cmd.app, name="transform")
 app.add_typer(promote_cmd.app, name="promote")
+app.add_typer(query_cmd.app, name="query")
 
 
 def main() -> None:  # pragma: no cover - console entry point

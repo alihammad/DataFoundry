@@ -271,6 +271,18 @@ def _register_routers(api_router: APIRouter) -> None:
         api_router.include_router(promotion_api.router)
     except ImportError:
         pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import lineage as lineage_api
+
+        api_router.include_router(lineage_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import query as query_api
+
+        api_router.include_router(query_api.router)
+    except ImportError:
+        pass
 
 
 #: Module-level app for ``uvicorn datafoundry.controlplane.api.app:app``.

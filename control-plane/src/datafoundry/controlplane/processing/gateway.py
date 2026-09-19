@@ -79,6 +79,9 @@ class SimulatedProcessingGateway(ProcessingGateway):
         self._tables: dict[str, ZoneTable] = {}
         self._quarantine: dict[str, dict[str, Any]] = {}
         self._faults: set[str] = set()  # test hooks
+        #: Column-level protection policy ``{column: "mask" | "tokenise"}``
+        #: applied on download (FR-016, US5-AC3).
+        self.protection_policy: dict[str, str] = {}
 
     # -- test hooks ---------------------------------------------------------
 
