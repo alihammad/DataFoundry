@@ -84,14 +84,14 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T023 [P] [US2] Contract tests for `POST /keys` (201 key_ref_id/version; 422 invalid kms/missing key_id/secret-scan hit), `POST /keys/{id}/rotate` (200 version++), `POST /keys/{id}/revoke` (200 revoked), `GET /keys/{id}` (status, never material) per contracts/security-api.md §3 — in `control-plane/tests/contract/test_keys_api.py`
-- [ ] T024 [P] [US2] Integration test for quickstart Scenario 2: verify storage encryption on all zones, reject plaintext transfer, accept + verify + process a source-encrypted file, customer-managed key end to end — in `control-plane/tests/integration/test_encryption_in_depth_flow.py`
+- [X] T023 [P] [US2] Contract tests for `POST /keys` (201 key_ref_id/version; 422 invalid kms/missing key_id/secret-scan hit), `POST /keys/{id}/rotate` (200 version++), `POST /keys/{id}/revoke` (200 revoked), `GET /keys/{id}` (status, never material) per contracts/security-api.md §3 — in `control-plane/tests/contract/test_keys_api.py`
+- [X] T024 [P] [US2] Integration test for quickstart Scenario 2: verify storage encryption on all zones, reject plaintext transfer, accept + verify + process a source-encrypted file, customer-managed key end to end — in `control-plane/tests/integration/test_encryption_in_depth_flow.py`
 
 ### Implementation for User Story 2
 
-- [ ] T025 [P] [US2] Implement the keys API router per contracts/security-api.md §3: `POST /keys`, `POST /keys/{id}/rotate`, `POST /keys/{id}/revoke`, `GET /keys/{id}`; keys never stored or exposed (FR-008); audit writes — in `control-plane/src/datafoundry/controlplane/api/keys.py`
-- [ ] T026 [P] [US2] Implement source-side encryption verification per research R-03: verify integrity/signature/encryption status/authenticity before processing; reject non-conforming files to quarantine (FR-006) — in `control-plane/src/datafoundry/controlplane/security/encryption.py`
-- [ ] T027 [US2] Implement CLI `datafoundry key register/rotate/revoke/status` commands per quickstart Scenario 2 — in `cli/src/datafoundry/cli/commands/key.py`
+- [X] T025 [P] [US2] Implement the keys API router per contracts/security-api.md §3: `POST /keys`, `POST /keys/{id}/rotate`, `POST /keys/{id}/revoke`, `GET /keys/{id}`; keys never stored or exposed (FR-008); audit writes — in `control-plane/src/datafoundry/controlplane/api/keys.py`
+- [X] T026 [P] [US2] Implement source-side encryption verification per research R-03: verify integrity/signature/encryption status/authenticity before processing; reject non-conforming files to quarantine (FR-006) — in `control-plane/src/datafoundry/controlplane/security/encryption.py`
+- [X] T027 [US2] Implement CLI `datafoundry key register/rotate/revoke/status` commands per quickstart Scenario 2 — in `cli/src/datafoundry/cli/commands/key.py`
 
 **Checkpoint**: US1 + US2 both work independently — classification-driven protection and encryption in depth with source-side verification
 

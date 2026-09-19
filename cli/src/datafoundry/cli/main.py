@@ -22,6 +22,7 @@ from datafoundry.cli.commands import destroy as destroy_cmd
 from datafoundry.cli.commands import export as export_cmd
 from datafoundry.cli.commands import gate as gate_cmd
 from datafoundry.cli.commands import ingest as ingest_cmd
+from datafoundry.cli.commands import key as key_cmd
 from datafoundry.cli.commands import override as override_cmd
 from datafoundry.cli.commands import pipeline as pipeline_cmd
 from datafoundry.cli.commands import promote as promote_cmd
@@ -60,6 +61,7 @@ app.add_typer(promote_cmd.app, name="promote")
 app.add_typer(query_cmd.app, name="query")
 app.add_typer(classify_cmd.app, name="classify")
 app.add_typer(protect_cmd.app, name="protect")
+app.add_typer(key_cmd.app, name="key")
 
 
 def main() -> None:  # pragma: no cover - console entry point
