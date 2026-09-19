@@ -640,3 +640,88 @@ class AuditService:
                 "transformation_id": str(transformation_id) if transformation_id else None,
             },
         )
+
+    # -- feature 005 security actions (T016, FR-014, SC-003) -----------------
+
+    def security_encrypt(
+        self, *, actor: str, dataset_id: uuid.UUID, column: str, key_ref_id: uuid.UUID
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.encrypt",
+            payload={
+                "dataset_id": str(dataset_id),
+                "column": column,
+                "key_ref_id": str(key_ref_id),
+            },
+        )
+
+    def security_decrypt(
+        self, *, actor: str, dataset_id: uuid.UUID, column: str, key_ref_id: uuid.UUID
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.decrypt",
+            payload={
+                "dataset_id": str(dataset_id),
+                "column": column,
+                "key_ref_id": str(key_ref_id),
+            },
+        )
+
+    def security_tokenise(self, *, actor: str, dataset_id: uuid.UUID, column: str) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.tokenise",
+            payload={"dataset_id": str(dataset_id), "column": column},
+        )
+
+    def security_detokenise(
+        self, *, actor: str, dataset_id: uuid.UUID, column: str, purpose: str
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.detokenise",
+            payload={"dataset_id": str(dataset_id), "column": column, "purpose": purpose},
+        )
+
+    def security_key_rotate(
+        self, *, actor: str, key_ref_id: uuid.UUID, version: int
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.key_rotate",
+            payload={"key_ref_id": str(key_ref_id), "version": version},
+        )
+
+    def security_key_revoke(self, *, actor: str, key_ref_id: uuid.UUID) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.key_revoke",
+            payload={"key_ref_id": str(key_ref_id)},
+        )
+
+    def security_policy_change(self, *, actor: str, policy_id: uuid.UUID, name: str) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.policy_change",
+            payload={"policy_id": str(policy_id), "name": name},
+        )
+
+    def security_restricted_access(
+        self, *, actor: str, dataset_id: uuid.UUID, resource: str
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.restricted_access",
+            payload={"dataset_id": str(dataset_id), "resource": resource},
+        )
+
+    def security_failed_decrypt(
+        self, *, actor: str, dataset_id: uuid.UUID, column: str
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="security.failed_decrypt",
+            payload={"dataset_id": str(dataset_id), "column": column},
+        )

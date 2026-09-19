@@ -205,6 +205,54 @@ class DataClassification(enum.StrEnum):
     highly_restricted = "highly_restricted"
 
 
+# -- security enums (feature 005) ---------------------------------------------
+
+
+class SecurityLevel(enum.StrEnum):
+    public = "public"
+    internal = "internal"
+    confidential = "confidential"
+    restricted = "restricted"
+    highly_restricted = "highly_restricted"
+
+
+class ProtectionMechanism(enum.StrEnum):
+    encrypt = "encrypt"
+    tokenise = "tokenise"
+    mask = "mask"
+    hash = "hash"
+    redact = "redact"
+    pseudonymise = "pseudonymise"
+
+
+class KmsProvider(enum.StrEnum):
+    aws_kms = "aws_kms"
+    gcp_cloud_kms = "gcp_cloud_kms"
+
+
+class KeyLifecycleState(enum.StrEnum):
+    active = "active"
+    disabled = "disabled"
+    revoked = "revoked"
+
+
+class AuditResult(enum.StrEnum):
+    success = "success"
+    denied = "denied"
+    failed = "failed"
+
+
+class AccessOutcome(enum.StrEnum):
+    granted = "granted"
+    denied = "denied"
+
+
+class VerificationResult(enum.StrEnum):
+    verified = "verified"
+    failed = "failed"
+    not_verified = "not_verified"
+
+
 # -- processing enums (feature 003) -------------------------------------------
 
 
@@ -1271,12 +1319,191 @@ class QuarantineRecord(Base):
     source: Mapped[DataSource] = relationship(back_populates="quarantine_records")
 
 
+# -- feature 005 security entities --------------------------------------------
+
+
+class Classification(Base):
+    """A dataset/column sensitivity level (FR-001, FR-020)."""
+
+    __tablename__ = "classifications"
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "column", name="uq_classification_dataset_column"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_classification_dataset"), nullable=False
+    )
+    level: Mapped[SecurityLevel] = mapped_column(
+        Enum(SecurityLevel, name="security_level"), nullable=False
+    )
+    column: Mapped[str | None] = mapped_column(String(63), nullable=True)
+    policy_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("protection_policies.id", name="fk_classification_policy"), nullable=False
+    )
+    changed_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    previous_level: Mapped[SecurityLevel | None] = mapped_column(
+        Enum(SecurityLevel, name="security_level"), nullable=True
+    )
+
+    dataset: Mapped[Dataset] = relationship()
+
+
+class ProtectionPolicy(Base):
+    """The enforceable rule set for a classification (FR-002, FR-003)."""
+
+    __tablename__ = "protection_policies"
+    __table_args__ = (UniqueConstraint("name", name="uq_protection_policy_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    classification: Mapped[SecurityLevel] = mapped_column(
+        Enum(SecurityLevel, name="security_level"), nullable=False
+    )
+    mechanism: Mapped[ProtectionMechanism] = mapped_column(
+        Enum(ProtectionMechanism, name="protection_mechanism"), nullable=False
+    )
+    key_ref_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("key_references.id", name="fk_policy_key_ref"), nullable=True
+    )
+    token_service_ref: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    authorised_roles: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    detokenise_roles: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    masking_rule: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
+class KeyReference(Base):
+    """A cryptographic key reference in an approved KMS (FR-008, FR-009)."""
+
+    __tablename__ = "key_references"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    kms: Mapped[KmsProvider] = mapped_column(Enum(KmsProvider, name="kms_provider"), nullable=False)
+    key_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    lifecycle_state: Mapped[KeyLifecycleState] = mapped_column(
+        Enum(KeyLifecycleState, name="key_lifecycle_state"),
+        nullable=False,
+        default=KeyLifecycleState.active,
+    )
+    rotation_schedule: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    usage_permissions: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
+class TokenReference(Base):
+    """A surrogate for a sensitive value held in the token service (FR-011)."""
+
+    __tablename__ = "token_references"
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "column", "token", name="uq_token_dataset_column_token"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_token_dataset"), nullable=False
+    )
+    column: Mapped[str] = mapped_column(String(63), nullable=False)
+    token: Mapped[str] = mapped_column(String(256), nullable=False)
+    original_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    deterministic: Mapped[bool] = mapped_column(nullable=False, default=False)
+    token_service_ref: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
+class SecurityAuditRecord(Base):
+    """One security-sensitive event, tamper-evident (FR-014, R-05)."""
+
+    __tablename__ = "security_audit_records"
+    __table_args__ = (
+        Index("ix_security_audit_identity", "identity"),
+        Index("ix_security_audit_dataset", "dataset_id"),
+        Index("ix_security_audit_action", "action"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    dataset_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("datasets.id", name="fk_security_audit_dataset"), nullable=True
+    )
+    column: Mapped[str | None] = mapped_column(String(63), nullable=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False)
+    purpose: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    result: Mapped[AuditResult] = mapped_column(
+        Enum(AuditResult, name="audit_result"), nullable=False
+    )
+    protection_service_ref: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class AccessDecision(Base):
+    """The outcome of the enforcement chain for a request (FR-013)."""
+
+    __tablename__ = "access_decisions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    resource: Mapped[str] = mapped_column(String(256), nullable=False)
+    classification_consulted: Mapped[SecurityLevel] = mapped_column(
+        Enum(SecurityLevel, name="security_level"), nullable=False
+    )
+    policy_applied: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("protection_policies.id", name="fk_access_policy"), nullable=True
+    )
+    outcome: Mapped[AccessOutcome] = mapped_column(
+        Enum(AccessOutcome, name="access_outcome"), nullable=False
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
+class EncryptionMetadata(Base):
+    """Per-file/per-batch record of source-side encryption (FR-006)."""
+
+    __tablename__ = "encryption_metadata"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    batch_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    file_ref: Mapped[str] = mapped_column(String(256), nullable=False)
+    mechanism: Mapped[str] = mapped_column(String(64), nullable=False)
+    key_ref_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("key_references.id", name="fk_encryption_key_ref"), nullable=True
+    )
+    signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    verification_result: Mapped[VerificationResult] = mapped_column(
+        Enum(VerificationResult, name="verification_result"), nullable=False
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 __all__ = [
+    "AccessDecision",
+    "AccessOutcome",
     "ApprovalStatus",
     "AuditRecord",
+    "AuditResult",
     "Base",
     "BatchStatus",
     "CatalogMetadata",
+    "Classification",
     "ConfigSource",
     "ConnectionState",
     "ContractOrigin",
@@ -1289,6 +1516,7 @@ __all__ = [
     "DatasetVersion",
     "DeploymentRun",
     "DeploymentStep",
+    "EncryptionMetadata",
     "EnvironmentType",
     "GateDecision",
     "GateOverride",
@@ -1301,6 +1529,9 @@ __all__ = [
     "IngestionPipeline",
     "IngestionRun",
     "IngestionRunStatus",
+    "KeyLifecycleState",
+    "KeyReference",
+    "KmsProvider",
     "LayerTransition",
     "LineageLink",
     "OverallStatus",
@@ -1311,6 +1542,8 @@ __all__ = [
     "PlatformStatus",
     "PromotionState",
     "PromotionStateRow",
+    "ProtectionMechanism",
+    "ProtectionPolicy",
     "Provider",
     "QualityGate",
     "QualityScore",
@@ -1321,6 +1554,8 @@ __all__ = [
     "RunStatus",
     "RunTrigger",
     "RunType",
+    "SecurityAuditRecord",
+    "SecurityLevel",
     "SourceContract",
     "SourceType",
     "StepStatus",
@@ -1329,6 +1564,8 @@ __all__ = [
     "TestResult",
     "TestResultStatus",
     "TestSeverity",
+    "TokenReference",
     "Transformation",
+    "VerificationResult",
     "ViolationClassification",
 ]

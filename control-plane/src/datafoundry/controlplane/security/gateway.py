@@ -82,7 +82,7 @@ class SimulatedSecurityGateway(SecurityGateway):
             key_ref_id=key_ref_id,
             version=version,
             lifecycle_state="active",
-            fernet=Fernet.generate_key(),
+            fernet=Fernet(Fernet.generate_key()),
         )
 
     def rotate_key(self, key_ref_id: str) -> int:
@@ -95,7 +95,7 @@ class SimulatedSecurityGateway(SecurityGateway):
             key_ref_id=key_ref_id,
             version=new_version,
             lifecycle_state="active",
-            fernet=Fernet.generate_key(),
+            fernet=Fernet(Fernet.generate_key()),
         )
         return new_version
 
