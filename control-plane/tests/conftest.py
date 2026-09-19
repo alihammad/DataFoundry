@@ -264,6 +264,56 @@ def simulated_processing_gateway():
 
 
 @pytest.fixture()
+def simulated_security_gateway():
+    """In-memory security gateway for offline protection tests."""
+    from datafoundry.controlplane.security.gateway import SimulatedSecurityGateway
+
+    return SimulatedSecurityGateway()
+
+
+@pytest.fixture()
+def classified_dataset(session_factory: sessionmaker[Session]):
+    """Create a minimal Dataset row for security tests.
+
+    Returns a callable ``classified_dataset(name, layer)`` persisting a Dataset
+    and returning its id.
+    """
+
+    def _make(name: str = "customer", layer: str = "silver"):
+        from datafoundry.controlplane.db.models import (
+            Dataset,
+            EnvironmentType,
+            Platform,
+            Provider,
+        )
+
+        with session_factory() as sess:
+            platform = Platform(
+                name="crm-platform",
+                provider=Provider.aws,
+                cloud_scope_id="scope-1",
+                region="us-east-1",
+                environment_type=EnvironmentType.test,
+                owner_identity="dev@datafoundry.local",
+            )
+            sess.add(platform)
+            sess.flush()
+            row = Dataset(
+                platform_id=platform.id,
+                name=name,
+                layer=layer,
+                schema_definition={"customer_id": {"type": "integer", "nullable": False}},
+                owner_identity="dev@datafoundry.local",
+                classification="internal",
+            )
+            sess.add(row)
+            sess.commit()
+            return row.id
+
+    return _make
+
+
+@pytest.fixture()
 def process_processing_run(app):
     """Drive the processing engine explicitly (tests use a no-op dispatcher).
 
