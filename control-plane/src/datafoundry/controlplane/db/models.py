@@ -866,6 +866,11 @@ class Transformation(Base):
     dedup_keys: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
     reconciliation_tolerance: Mapped[float | None] = mapped_column(nullable=True)
     owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    #: GitOps provenance (FR-005): ``source`` (git|api) + ``git_ref``.
+    source: Mapped[ConfigSource] = mapped_column(
+        Enum(ConfigSource, name="config_source"), nullable=False, default=ConfigSource.api
+    )
+    git_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
