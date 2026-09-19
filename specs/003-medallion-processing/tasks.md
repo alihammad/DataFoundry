@@ -149,15 +149,15 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T040 [P] [US5] Contract tests for `POST /datasets/{id}/query` (200 columns/rows/row_count; 403 unauthorised), `POST /datasets/{id}/query/download` (CSV/Parquet; column-level protection applied) per contracts/processing-api.md §5 — in `control-plane/tests/contract/test_query_api.py`
-- [ ] T041 [P] [US5] Integration test for quickstart Scenario 5: query CONSUMABLE Gold dataset, verify results reflect current version; query unauthorised dataset → 403; download respects column-level protection (masked/tokenised per policy) — in `control-plane/tests/integration/test_query_flow.py`
+- [X] T040 [P] [US5] Contract tests for `POST /datasets/{id}/query` (200 columns/rows/row_count; 403 unauthorised), `POST /datasets/{id}/query/download` (CSV/Parquet; column-level protection applied) per contracts/processing-api.md §5 — in `control-plane/tests/contract/test_query_api.py`
+- [X] T041 [P] [US5] Integration test for quickstart Scenario 5: query CONSUMABLE Gold dataset, verify results reflect current version; query unauthorised dataset → 403; download respects column-level protection (masked/tokenised per policy) — in `control-plane/tests/integration/test_query_flow.py`
 
 ### Implementation for User Story 5
 
-- [ ] T042 [P] [US5] Implement the query module per research R-03: DuckDB analyst querying over Silver/Gold Iceberg tables (lightweight, no warehouse load, FR-016), schema/quality score/freshness surfaced before querying (US5-AC1), column-level protection on download (masking/tokenisation per policy, FR-016, US5-AC3) — in `control-plane/src/datafoundry/controlplane/processing/query.py`
-- [ ] T043 [P] [US5] Implement lineage module per research R-07: lineage links source → Bronze → Silver → Gold → consumers, navigable both directions (FR-015, SC-006) — in `control-plane/src/datafoundry/controlplane/processing/lineage.py` and `api/lineage.py` (GET /datasets/{id}/lineage)
-- [ ] T044 [US5] Implement the query API router per contracts/processing-api.md §5: `POST /datasets/{id}/query`, `POST /datasets/{id}/query/download`; authorisation check; column-level protection on download — in `control-plane/src/datafoundry/controlplane/api/query.py`
-- [ ] T045 [US5] Implement CLI `datafoundry query run/download` commands per quickstart Scenario 5 — in `cli/src/datafoundry/cli/commands/query.py`
+- [X] T042 [P] [US5] Implement the query module per research R-03: DuckDB analyst querying over Silver/Gold Iceberg tables (lightweight, no warehouse load, FR-016), schema/quality score/freshness surfaced before querying (US5-AC1), column-level protection on download (masking/tokenisation per policy, FR-016, US5-AC3) — in `control-plane/src/datafoundry/controlplane/processing/query.py`
+- [X] T043 [P] [US5] Implement lineage module per research R-07: lineage links source → Bronze → Silver → Gold → consumers, navigable both directions (FR-015, SC-006) — in `control-plane/src/datafoundry/controlplane/processing/lineage.py` and `api/lineage.py` (GET /datasets/{id}/lineage)
+- [X] T044 [US5] Implement the query API router per contracts/processing-api.md §5: `POST /datasets/{id}/query`, `POST /datasets/{id}/query/download`; authorisation check; column-level protection on download — in `control-plane/src/datafoundry/controlplane/api/query.py`
+- [X] T045 [US5] Implement CLI `datafoundry query run/download` commands per quickstart Scenario 5 — in `cli/src/datafoundry/cli/commands/query.py`
 
 **Checkpoint**: US1–US5 all work — analysts query Silver/Gold directly with column-level protection and navigable lineage
 
