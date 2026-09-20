@@ -57,10 +57,11 @@ def set_classification(
         )
     ).scalar_one_or_none()
     if existing is not None:
+        # Record the prior level for lineage (FR-018) BEFORE overwriting.
+        existing.previous_level = existing.level
         existing.level = level
         existing.policy_id = policy_id
         existing.changed_by = changed_by
-        existing.previous_level = existing.level
         session.flush()
         return existing
     row = Classification(
