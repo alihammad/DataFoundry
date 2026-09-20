@@ -725,3 +725,60 @@ class AuditService:
             action="security.failed_decrypt",
             payload={"dataset_id": str(dataset_id), "column": column},
         )
+
+    # -- feature 006 semantic actions (T012, FR-003/005/010, SC-007) ---------
+
+    def semantic_model_defined(
+        self, *, actor: str, model_id: uuid.UUID, domain: str, version: int
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="semantic.model.defined",
+            payload={"model_id": str(model_id), "domain": domain, "version": version},
+        )
+
+    def semantic_model_published(
+        self, *, actor: str, model_id: uuid.UUID, version: int
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="semantic.model.published",
+            payload={"model_id": str(model_id), "version": version},
+        )
+
+    def semantic_metric_queried(
+        self, *, actor: str, metric_id: uuid.UUID, model_version: int
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="semantic.metric.queried",
+            payload={"metric_id": str(metric_id), "model_version": model_version},
+        )
+
+    def semantic_test_run(self, *, actor: str, test_id: uuid.UUID, status: str) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="semantic.test.run",
+            payload={"test_id": str(test_id), "status": status},
+        )
+
+    def semantic_consumer_registered(
+        self, *, actor: str, metric_id: uuid.UUID, consumer_identity: str
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="semantic.consumer.registered",
+            payload={"metric_id": str(metric_id), "consumer_identity": consumer_identity},
+        )
+
+    def semantic_metric_deprecated(
+        self, *, actor: str, metric_id: uuid.UUID, successor_metric_id: uuid.UUID | None
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="semantic.metric.deprecated",
+            payload={
+                "metric_id": str(metric_id),
+                "successor_metric_id": str(successor_metric_id) if successor_metric_id else None,
+            },
+        )

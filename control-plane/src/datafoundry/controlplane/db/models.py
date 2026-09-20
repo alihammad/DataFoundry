@@ -253,6 +253,51 @@ class VerificationResult(enum.StrEnum):
     not_verified = "not_verified"
 
 
+# -- semantic enums (feature 006) ---------------------------------------------
+
+
+class CertificationState(enum.StrEnum):
+    draft = "draft"
+    published = "published"
+    deprecated = "deprecated"
+
+
+class SemanticTestCategory(enum.StrEnum):
+    calculation = "calculation"
+    reconciliation = "reconciliation"
+    relationship = "relationship"
+    filter = "filter"
+
+
+class SemanticTestStatus(enum.StrEnum):
+    passed = "passed"
+    failed = "failed"
+    error = "error"
+
+
+class SemanticTestTrigger(enum.StrEnum):
+    publish = "publish"
+    schedule = "schedule"
+
+
+class ChangeClassification(enum.StrEnum):
+    breaking = "breaking"
+    non_breaking = "non_breaking"
+
+
+class ConsumptionPath(enum.StrEnum):
+    bi = "bi"
+    analyst_sql = "analyst_sql"
+    ai_ml = "ai_ml"
+    application = "application"
+
+
+class QualityState(enum.StrEnum):
+    passed = "passed"
+    failed = "failed"
+    unknown = "unknown"
+
+
 # -- processing enums (feature 003) -------------------------------------------
 
 
@@ -1494,6 +1539,254 @@ class EncryptionMetadata(Base):
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+# -- semantic models (feature 006) --------------------------------------------
+
+
+class SemanticModel(Base):
+    """The versioned collection of semantic definitions for a domain (FR-003)."""
+
+    __tablename__ = "semantic_models"
+    __table_args__ = (
+        UniqueConstraint("domain", "version", name="uq_semantic_model_domain_version"),
+        UniqueConstraint("domain", name="uq_semantic_model_domain"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    domain: Mapped[str] = mapped_column(String(63), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    config_yaml: Mapped[str] = mapped_column(Text, nullable=False)
+    config_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    certification_state: Mapped[CertificationState] = mapped_column(
+        Enum(CertificationState, name="certification_state"),
+        nullable=False,
+        default=CertificationState.draft,
+    )
+    created_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
+class Metric(Base):
+    """A named business measure (FR-006)."""
+
+    __tablename__ = "semantic_metrics"
+    __table_args__ = (UniqueConstraint("model_id", "name", name="uq_semantic_metric_model_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_models.id", name="fk_metric_model"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    business_definition: Mapped[str] = mapped_column(Text, nullable=False)
+    formula: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    dimensions: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    bound_datasets: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    quality_score: Mapped[float | None] = mapped_column(nullable=True)
+    freshness: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    successor_metric_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
+class Dimension(Base):
+    """An axis of analysis (FR-007)."""
+
+    __tablename__ = "semantic_dimensions"
+    __table_args__ = (
+        UniqueConstraint("model_id", "name", name="uq_semantic_dimension_model_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_models.id", name="fk_dimension_model"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    members: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    relationships: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    protection_status: Mapped[SecurityLevel] = mapped_column(
+        Enum(SecurityLevel, name="security_level"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
+class Measure(Base):
+    """A quantitative column within a dataset that metrics aggregate over."""
+
+    __tablename__ = "semantic_measures"
+    __table_args__ = (UniqueConstraint("model_id", "name", name="uq_semantic_measure_model_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_models.id", name="fk_measure_model"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_measure_dataset"), nullable=False
+    )
+    column: Mapped[str] = mapped_column(String(63), nullable=False)
+    data_type: Mapped[str] = mapped_column(String(63), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
+class Relationship(Base):
+    """A declared join/association between datasets or dimensions."""
+
+    __tablename__ = "semantic_relationships"
+    __table_args__ = (
+        UniqueConstraint("model_id", "name", name="uq_semantic_relationship_model_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_models.id", name="fk_relationship_model"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    left_dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_relationship_left"), nullable=False
+    )
+    right_dataset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("datasets.id", name="fk_relationship_right"), nullable=False
+    )
+    join_key: Mapped[str] = mapped_column(String(63), nullable=False)
+    join_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
+class SemanticTest(Base):
+    """A validation bound to a definition (FR-004)."""
+
+    __tablename__ = "semantic_tests"
+    __table_args__ = (UniqueConstraint("model_id", "name", name="uq_semantic_test_model_name"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_models.id", name="fk_semantic_test_model"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    category: Mapped[SemanticTestCategory] = mapped_column(
+        Enum(SemanticTestCategory, name="semantic_test_category"), nullable=False
+    )
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
+class SemanticTestResult(Base):
+    """One semantic test's outcome in one run (FR-014)."""
+
+    __tablename__ = "semantic_test_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    test_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_tests.id", name="fk_test_result_test"), nullable=False
+    )
+    publication_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("semantic_publications.id", name="fk_test_result_publication"),
+        nullable=True,
+    )
+    status: Mapped[SemanticTestStatus] = mapped_column(
+        Enum(SemanticTestStatus, name="semantic_test_status"), nullable=False
+    )
+    measured_value: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant, nullable=True)
+    ran_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    trigger: Mapped[SemanticTestTrigger] = mapped_column(
+        Enum(SemanticTestTrigger, name="semantic_test_trigger"), nullable=False
+    )
+
+
+class Publication(Base):
+    """A GitOps publication of a semantic model version (FR-003, FR-005)."""
+
+    __tablename__ = "semantic_publications"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_models.id", name="fk_publication_model"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    change_classification: Mapped[ChangeClassification] = mapped_column(
+        Enum(ChangeClassification, name="change_classification"), nullable=False
+    )
+    approval_status: Mapped[ApprovalStatus] = mapped_column(
+        Enum(ApprovalStatus, name="approval_status"),
+        nullable=False,
+        default=ApprovalStatus.pending,
+    )
+    approved_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
+class ConsumerRegistration(Base):
+    """A record of which teams/paths consume which metrics (FR-005, FR-010)."""
+
+    __tablename__ = "semantic_consumer_registrations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    metric_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_metrics.id", name="fk_consumer_metric"), nullable=False
+    )
+    consumer_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    consumption_path: Mapped[ConsumptionPath] = mapped_column(
+        Enum(ConsumptionPath, name="consumption_path"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
+class QueryResultVersion(Base):
+    """The definition version recorded with every query result (FR-012)."""
+
+    __tablename__ = "semantic_query_result_versions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    metric_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("semantic_metrics.id", name="fk_query_result_metric"), nullable=False
+    )
+    model_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    dataset_versions: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    freshness: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    quality_state: Mapped[QualityState] = mapped_column(
+        Enum(QualityState, name="quality_state"), nullable=False
+    )
+    queried_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
 __all__ = [
     "AccessDecision",
     "AccessOutcome",
@@ -1503,9 +1796,13 @@ __all__ = [
     "Base",
     "BatchStatus",
     "CatalogMetadata",
+    "CertificationState",
+    "ChangeClassification",
     "Classification",
     "ConfigSource",
     "ConnectionState",
+    "ConsumerRegistration",
+    "ConsumptionPath",
     "ContractOrigin",
     "ContractViolation",
     "DataClassification",
@@ -1516,6 +1813,7 @@ __all__ = [
     "DatasetVersion",
     "DeploymentRun",
     "DeploymentStep",
+    "Dimension",
     "EncryptionMetadata",
     "EnvironmentType",
     "GateDecision",
@@ -1534,6 +1832,8 @@ __all__ = [
     "KmsProvider",
     "LayerTransition",
     "LineageLink",
+    "Measure",
+    "Metric",
     "OverallStatus",
     "OverrideStatus",
     "PipelineState",
@@ -1545,17 +1845,27 @@ __all__ = [
     "ProtectionMechanism",
     "ProtectionPolicy",
     "Provider",
+    "Publication",
     "QualityGate",
     "QualityScore",
+    "QualityState",
     "QualityTest",
     "QuarantineEntry",
     "QuarantineRecord",
+    "QueryResultVersion",
+    "Relationship",
     "RunOutcome",
     "RunStatus",
     "RunTrigger",
     "RunType",
     "SecurityAuditRecord",
     "SecurityLevel",
+    "SemanticModel",
+    "SemanticTest",
+    "SemanticTestCategory",
+    "SemanticTestResult",
+    "SemanticTestStatus",
+    "SemanticTestTrigger",
     "SourceContract",
     "SourceType",
     "StepStatus",

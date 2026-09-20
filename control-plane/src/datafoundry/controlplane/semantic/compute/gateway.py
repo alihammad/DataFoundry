@@ -31,8 +31,8 @@ class ZoneTable:
     protected_columns: list[str] = field(default_factory=list)
     #: Row-level restrictions: role -> list of row predicates (feature 005).
     row_restrictions: dict[str, list[str]] = field(default_factory=dict)
-    #: Quality-state flag (feature 004): pass | fail | stale.
-    quality_state: str = "pass"
+    #: Quality-state flag (feature 004): passed | failed | unknown.
+    quality_state: str = "passed"
     #: Freshness: last updated timestamp (ISO) for staleness detection.
     last_updated: str | None = None
 
@@ -141,7 +141,7 @@ class SimulatedSemanticGateway(SemanticGateway):
             layer="gold",
             schema=orders_schema,
             rows=orders_rows,
-            quality_state="pass",
+            quality_state="passed",
             last_updated="2026-09-20T00:00:00Z",
         )
 
@@ -165,7 +165,7 @@ class SimulatedSemanticGateway(SemanticGateway):
             rows=customers_rows,
             protected_columns=["email"],
             row_restrictions={"analyst": ["segment != 'vip'"]},
-            quality_state="pass",
+            quality_state="passed",
             last_updated="2026-09-20T00:00:00Z",
         )
 
@@ -187,7 +187,7 @@ class SimulatedSemanticGateway(SemanticGateway):
             raise KeyError(f"no {layer} table {dataset_id}")
         quality_state = table.quality_state
         if "quality_failure" in self._faults:
-            quality_state = "fail"
+            quality_state = "failed"
         last_updated = table.last_updated
         if "stale_data" in self._faults:
             last_updated = "2020-01-01T00:00:00Z"
