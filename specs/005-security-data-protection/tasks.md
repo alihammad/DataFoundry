@@ -165,13 +165,13 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T040 [P] [US6] Contract tests for `GET /security-audit` (search by identity/dataset/action/date range), `GET /security-audit/{id}` (full record incl. prev_hash/hash for tamper verification) per contracts/security-api.md §6 — in `control-plane/tests/contract/test_security_audit_api.py`
-- [ ] T041 [P] [US6] Integration test for quickstart Scenario 6: perform scripted security operations, verify each appears with complete fields, verify tampering detectable — in `control-plane/tests/integration/test_security_audit_flow.py`
+- [X] T040 [P] [US6] Contract tests for `GET /security-audit` (search by identity/dataset/action/date range), `GET /security-audit/{id}` (full record incl. prev_hash/hash for tamper verification) per contracts/security-api.md §6 — in `control-plane/tests/contract/test_security_audit_api.py`
+- [X] T041 [P] [US6] Integration test for quickstart Scenario 6: perform scripted security operations, verify each appears with complete fields, verify tampering detectable — in `control-plane/tests/integration/test_security_audit_flow.py`
 
 ### Implementation for User Story 6
 
-- [ ] T042 [P] [US6] Implement the security audit API router per contracts/security-api.md §6: `GET /security-audit`, `GET /security-audit/{id}`; tamper-evident hash chain (FR-014); failed decryption/detokenisation alertable (FR-015) — in `control-plane/src/datafoundry/controlplane/api/security_audit.py`
-- [ ] T043 [US6] Implement CLI `datafoundry security-audit search/get` commands per quickstart Scenario 6 — in `cli/src/datafoundry/cli/commands/security_audit.py`
+- [X] T042 [P] [US6] Implement the security audit API router per contracts/security-api.md §6: `GET /security-audit`, `GET /security-audit/{id}`; tamper-evident hash chain (FR-014); failed decryption/detokenisation alertable (FR-015) — in `control-plane/src/datafoundry/controlplane/api/security_audit.py`
+- [X] T043 [US6] Implement CLI `datafoundry security-audit search/get` commands per quickstart Scenario 6 — in `cli/src/datafoundry/cli/commands/security_audit.py`
 
 **Checkpoint**: US1–US6 all work — security is auditable with tamper-evident, searchable records
 
