@@ -272,6 +272,14 @@ def simulated_security_gateway():
 
 
 @pytest.fixture()
+def simulated_semantic_gateway():
+    """In-memory semantic gateway for offline metric/semantic tests."""
+    from datafoundry.controlplane.semantic.compute.gateway import SimulatedSemanticGateway
+
+    return SimulatedSemanticGateway()
+
+
+@pytest.fixture()
 def classified_dataset(session_factory: sessionmaker[Session]):
     """Create a minimal Dataset row for security tests.
 
@@ -331,6 +339,75 @@ def process_processing_run(app):
                 gateway=app.state.processing_gateway,
                 transformation_id=transformation_id,
                 dataset_id=dataset_id,
+            )
+            session.commit()
+            return result
+        finally:
+            session.close()
+
+    return _process
+
+
+@pytest.fixture()
+def semantic_dataset(session_factory: sessionmaker[Session]):
+    """Create a minimal Dataset row for semantic tests.
+
+    Returns a callable ``semantic_dataset(name, layer)`` persisting a Dataset
+    and returning its id.
+    """
+
+    def _make(name: str = "orders", layer: str = "gold"):
+        from datafoundry.controlplane.db.models import (
+            Dataset,
+            EnvironmentType,
+            Platform,
+            Provider,
+        )
+
+        with session_factory() as sess:
+            platform = Platform(
+                name="crm-platform",
+                provider=Provider.aws,
+                cloud_scope_id="scope-1",
+                region="us-east-1",
+                environment_type=EnvironmentType.test,
+                owner_identity="dev@datafoundry.local",
+            )
+            sess.add(platform)
+            sess.flush()
+            row = Dataset(
+                platform_id=platform.id,
+                name=name,
+                layer=layer,
+                schema_definition={"order_id": {"type": "integer", "nullable": False}},
+                owner_identity="dev@datafoundry.local",
+                classification="internal",
+            )
+            sess.add(row)
+            sess.commit()
+            return row.id
+
+    return _make
+
+
+@pytest.fixture()
+def process_semantic_query(app):
+    """Drive the semantic engine explicitly (tests use a no-op dispatcher).
+
+    Returns a callable ``process_semantic_query(metric_id, ...)`` executing the
+    metric query against the app's semantic gateway.
+    """
+
+    def _process(metric_id, **kwargs):
+        from datafoundry.controlplane.semantic.engine import run_semantic_query
+
+        session = app.state.sessionmaker()
+        try:
+            result = run_semantic_query(
+                session,
+                gateway=app.state.semantic_gateway,
+                metric_id=metric_id,
+                **kwargs,
             )
             session.commit()
             return result
