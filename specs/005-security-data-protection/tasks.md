@@ -145,13 +145,13 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T036 [P] [US5] Contract tests for `POST /access/decide` (200 outcome granted/denied with classification_consulted/policy_applied/reason; key-use permission separately enforced from data-read) per contracts/security-api.md §5 — in `control-plane/tests/contract/test_access_api.py`
-- [ ] T037 [P] [US5] Integration test for quickstart Scenario 5: users of different roles query same dataset, verify row filters apply, column protections differ by role, key-use permission separately enforced — in `control-plane/tests/integration/test_access_enforcement_flow.py`
+- [X] T036 [P] [US5] Contract tests for `POST /access/decide` (200 outcome granted/denied with classification_consulted/policy_applied/reason; key-use permission separately enforced from data-read) per contracts/security-api.md §5 — in `control-plane/tests/contract/test_access_api.py`
+- [X] T037 [P] [US5] Integration test for quickstart Scenario 5: users of different roles query same dataset, verify row filters apply, column protections differ by role, key-use permission separately enforced — in `control-plane/tests/integration/test_access_enforcement_flow.py`
 
 ### Implementation for User Story 5
 
-- [ ] T038 [P] [US5] Implement the access API router per contracts/security-api.md §5: `POST /access/decide`; evaluate enforcement chain at query time (no cached grants); audit writes — in `control-plane/src/datafoundry/controlplane/api/access.py`
-- [ ] T039 [US5] Implement CLI `datafoundry access decide` command per quickstart Scenario 5 — in `cli/src/datafoundry/cli/commands/access.py`
+- [X] T038 [P] [US5] Implement the access API router per contracts/security-api.md §5: `POST /access/decide`; evaluate enforcement chain at query time (no cached grants); audit writes — in `control-plane/src/datafoundry/controlplane/api/access.py`
+- [X] T039 [US5] Implement CLI `datafoundry access decide` command per quickstart Scenario 5 — in `cli/src/datafoundry/cli/commands/access.py`
 
 **Checkpoint**: US1–US5 all work — access follows the enforcement chain with least-privilege and separate key-use permission
 

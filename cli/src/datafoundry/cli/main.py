@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 
 import typer
+from datafoundry.cli.commands import access as access_cmd
 from datafoundry.cli.commands import classify as classify_cmd
 from datafoundry.cli.commands import contract as contract_cmd
 from datafoundry.cli.commands import dataset as dataset_cmd
@@ -64,6 +65,7 @@ app.add_typer(classify_cmd.app, name="classify")
 app.add_typer(protect_cmd.app, name="protect")
 app.add_typer(key_cmd.app, name="key")
 app.add_typer(token_cmd.app, name="token")
+app.add_typer(access_cmd.app, name="access")
 
 
 def main() -> None:  # pragma: no cover - console entry point
