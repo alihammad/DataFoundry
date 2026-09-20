@@ -35,6 +35,13 @@ def tokenise(
     in the secured token service (the gateway's in-memory vault).
     """
     token = gateway.tokenise(value=value, deterministic=deterministic)
+    # Deterministic tokenisation of the same value yields the same token;
+    # reuse the existing reference rather than violating the unique constraint.
+    existing = session.execute(
+        select(TokenReference).where(TokenReference.token == token)
+    ).scalar_one_or_none()
+    if existing is not None:
+        return token
     original_hash = hashlib.sha256(value.encode()).hexdigest()
     session.add(
         TokenReference(

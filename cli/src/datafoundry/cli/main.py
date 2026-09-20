@@ -32,6 +32,7 @@ from datafoundry.cli.commands import quarantine as quarantine_cmd
 from datafoundry.cli.commands import query as query_cmd
 from datafoundry.cli.commands import source as source_cmd
 from datafoundry.cli.commands import status as status_cmd
+from datafoundry.cli.commands import token as token_cmd
 from datafoundry.cli.commands import transform as transform_cmd
 from datafoundry.cli.commands import validate as validate_cmd
 
@@ -62,6 +63,7 @@ app.add_typer(query_cmd.app, name="query")
 app.add_typer(classify_cmd.app, name="classify")
 app.add_typer(protect_cmd.app, name="protect")
 app.add_typer(key_cmd.app, name="key")
+app.add_typer(token_cmd.app, name="token")
 
 
 def main() -> None:  # pragma: no cover - console entry point

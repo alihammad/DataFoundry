@@ -68,6 +68,9 @@ class Caller:
     identity: str
     provider: str | None = None
     account_id: str | None = None
+    #: RBAC roles for the caller (feature 005 FR-012/FR-013). Populated from
+    #: the dev identity's roles in dev mode; from federated IAM in cloud mode.
+    roles: tuple[str, ...] = field(default=())
     #: Permissions the caller was *denied* during pre-checks (empty = fully
     #: authorised). Populated by the permission pre-check (T029).
     missing_permissions: tuple[str, ...] = field(default=())
@@ -143,7 +146,10 @@ async def get_caller(
 ) -> Caller:
     """FastAPI dependency: authenticated caller identity."""
     if settings.auth_mode == "dev":
-        return Caller(identity=settings.dev_identity)
+        return Caller(
+            identity=settings.dev_identity,
+            roles=tuple(settings.dev_roles),
+        )
     return await _extract_cloud_iam_identity(request)
 
 

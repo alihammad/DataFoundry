@@ -105,13 +105,13 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T028 [P] [US3] Contract tests for `POST /datasets/{id}/tokens/tokenise` (200 token; deterministic same-input-same-token; 403 unauthorised), `POST /datasets/{id}/tokens/detokenise` (200 value + audited; 403 unauthorised + recorded) per contracts/security-api.md §4 — in `control-plane/tests/contract/test_tokens_api.py`
-- [ ] T029 [P] [US3] Integration test for quickstart Scenario 3: tokenise column, verify deterministic tokens + joins work, unauthorised detokenisation denied + audited, authorised detokenisation succeeds with audit — in `control-plane/tests/integration/test_tokenisation_flow.py`
+- [X] T028 [P] [US3] Contract tests for `POST /datasets/{id}/tokens/tokenise` (200 token; deterministic same-input-same-token; 403 unauthorised), `POST /datasets/{id}/tokens/detokenise` (200 value + audited; 403 unauthorised + recorded) per contracts/security-api.md §4 — in `control-plane/tests/contract/test_tokens_api.py`
+- [X] T029 [P] [US3] Integration test for quickstart Scenario 3: tokenise column, verify deterministic tokens + joins work, unauthorised detokenisation denied + audited, authorised detokenisation succeeds with audit — in `control-plane/tests/integration/test_tokenisation_flow.py`
 
 ### Implementation for User Story 3
 
-- [ ] T030 [P] [US3] Implement the tokens API router per contracts/security-api.md §4: `POST /datasets/{id}/tokens/tokenise`, `POST /datasets/{id}/tokens/detokenise`; detokenisation authorisation + purpose (FR-012); audit writes — in `control-plane/src/datafoundry/controlplane/api/tokens.py`
-- [ ] T031 [US3] Implement CLI `datafoundry token tokenise/detokenise` commands per quickstart Scenario 3 — in `cli/src/datafoundry/cli/commands/token.py`
+- [X] T030 [P] [US3] Implement the tokens API router per contracts/security-api.md §4: `POST /datasets/{id}/tokens/tokenise`, `POST /datasets/{id}/tokens/detokenise`; detokenisation authorisation + purpose (FR-012); audit writes — in `control-plane/src/datafoundry/controlplane/api/tokens.py`
+- [X] T031 [US3] Implement CLI `datafoundry token tokenise/detokenise` commands per quickstart Scenario 3 — in `cli/src/datafoundry/cli/commands/token.py`
 
 **Checkpoint**: US1 + US2 + US3 all work independently — classification, encryption, and tokenisation with audited detokenisation
 

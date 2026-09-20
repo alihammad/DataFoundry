@@ -62,6 +62,8 @@ class Settings:
     # local identity, development only).
     auth_mode: str = "dev"
     dev_identity: str = "dev@datafoundry.local"
+    #: RBAC roles granted to the dev identity (feature 005 FR-012/FR-013).
+    dev_roles: tuple[str, ...] = ("data-engineer", "security-officer")
 
     # Observability
     log_level: str = "INFO"
@@ -96,6 +98,11 @@ class Settings:
             simulate_cloud=_env_bool("DF_SIMULATE_CLOUD", True),
             auth_mode=env.get("DF_AUTH_MODE", "dev"),
             dev_identity=env.get("DF_DEV_IDENTITY", "dev@datafoundry.local"),
+            dev_roles=tuple(
+                r.strip()
+                for r in env.get("DF_DEV_ROLES", "data-engineer,security-officer").split(",")
+                if r.strip()
+            ),
             log_level=env.get("DF_LOG_LEVEL", "INFO"),
             log_json=_env_bool("DF_LOG_JSON", True),
             otel_enabled=_env_bool("DF_OTEL_ENABLED", True),
