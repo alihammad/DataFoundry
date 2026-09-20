@@ -125,13 +125,13 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T032 [P] [US4] Contract tests for key rotation/revocation lifecycle: rotate keeps historical data readable via prior versions while new writes use current (FR-009); revoked key blocks decryption + audited (FR-008); no key material in any export/log/UI (SC-003) per contracts/security-api.md §3 — in `control-plane/tests/contract/test_keys_api.py`
-- [ ] T033 [P] [US4] Integration test for quickstart Scenario 4: rotate key, verify old versions decrypt historical data + new writes use new version; revoke key, verify decryption fails + audited; verify no key material in exports — in `control-plane/tests/integration/test_key_rotation_flow.py`
+- [X] T032 [P] [US4] Contract tests for key rotation/revocation lifecycle: rotate keeps historical data readable via prior versions while new writes use current (FR-009); revoked key blocks decryption + audited (FR-008); no key material in any export/log/UI (SC-003) per contracts/security-api.md §3 — in `control-plane/tests/contract/test_keys_api.py`
+- [X] T033 [P] [US4] Integration test for quickstart Scenario 4: rotate key, verify old versions decrypt historical data + new writes use new version; revoke key, verify decryption fails + audited; verify no key material in exports — in `control-plane/tests/integration/test_key_rotation_flow.py`
 
 ### Implementation for User Story 4
 
-- [ ] T034 [P] [US4] Implement key lifecycle in the logical encryption service: rotation keeps historical data readable via prior versions (FR-009), revocation blocks further decryption (FR-008), separation of duties (FR-008) — in `control-plane/src/datafoundry/controlplane/security/keys.py`
-- [ ] T035 [US4] Implement cloud-independence of key behaviour (FR-010, SC-007): identical logical protection behaviour on both clouds, cloud-specific KMS resolved by the platform — extend `scripts/parity_checklist.py` with a security parity check (mirroring feature 002 SC-003 pattern)
+- [X] T034 [P] [US4] Implement key lifecycle in the logical encryption service: rotation keeps historical data readable via prior versions (FR-009), revocation blocks further decryption (FR-008), separation of duties (FR-008) — in `control-plane/src/datafoundry/controlplane/security/keys.py`
+- [X] T035 [US4] Implement cloud-independence of key behaviour (FR-010, SC-007): identical logical protection behaviour on both clouds, cloud-specific KMS resolved by the platform — extend `scripts/parity_checklist.py` with a security parity check (mirroring feature 002 SC-003 pattern)
 
 **Checkpoint**: US1–US4 all work — keys are managed through KMS with rotation/versioning/revocation and cloud-independent behaviour
 

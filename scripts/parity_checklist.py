@@ -269,6 +269,57 @@ def render_processing_parity(check: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def security_parity_check(repo_root: Path) -> dict[str, Any]:
+    """Security-engine cloud-independence check (feature 005, FR-010, SC-007).
+
+    The security engine (classification, protection, keys, tokens, access,
+    audit) must be cloud-independent: identical protection outcomes for
+    identical data/config on both clouds. It must never talk to a cloud SDK
+    directly — all KMS/token-vault/protection operations go through the
+    ``SecurityGateway`` abstraction (AWS KMS / GCP Cloud KMS adapters). This
+    check scans the security engine source for forbidden cloud-SDK imports
+    (boto3, google.cloud) and confirms the engine routes operations through
+    the gateway.
+    """
+    security_dir = repo_root / "control-plane" / "src" / "datafoundry" / "controlplane" / "security"
+    forbidden = ("boto3", "google.cloud", "google.cloud.storage")
+    violations: list[str] = []
+    for path in sorted(security_dir.rglob("*.py")):
+        text = path.read_text()
+        for token in forbidden:
+            if token in text:
+                violations.append(f"{path.relative_to(repo_root)}: imports {token}")
+
+    # The engine must route KMS/token operations through the gateway.
+    gateway = security_dir / "gateway.py"
+    uses_gateway = "class SecurityGateway" in gateway.read_text() if gateway.exists() else False
+
+    holds = not violations and uses_gateway
+    return {
+        "check": "security_cloud_independence",
+        "holds": holds,
+        "forbidden_imports": violations,
+        "engine_routes_through_gateway": uses_gateway,
+    }
+
+
+def render_security_parity(check: dict[str, Any]) -> str:
+    """Render the security parity check as Markdown."""
+    lines = [
+        "# Security Cloud-Independence Check (FR-010, SC-007)",
+        "",
+        f"Parity holds: **{check['holds']}**",
+        "",
+        f"Engine routes operations through gateway: **{check['engine_routes_through_gateway']}**",
+    ]
+    if check["forbidden_imports"]:
+        lines.append("")
+        lines.append("Forbidden cloud-SDK imports:")
+        for v in check["forbidden_imports"]:
+            lines.append(f"- {v}")
+    return "\n".join(lines) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Capability-parity checklist generator (SC-003)")
     parser.add_argument(
@@ -284,6 +335,7 @@ def main(argv: list[str] | None = None) -> int:
     checklist = build_checklist(terraform_root)
     quality_check = quality_parity_check(REPO_ROOT)
     processing_check = processing_parity_check(REPO_ROOT)
+    security_check = security_parity_check(REPO_ROOT)
 
     if args.json:
         Path(args.json).write_text(json.dumps(checklist, indent=2, sort_keys=True) + "\n")
@@ -295,10 +347,15 @@ def main(argv: list[str] | None = None) -> int:
         print(render_quality_parity(quality_check), end="")
         print()
         print(render_processing_parity(processing_check), end="")
+        print()
+        print(render_security_parity(security_check), end="")
 
     return (
         0
-        if checklist["parity_holds"] and quality_check["holds"] and processing_check["holds"]
+        if checklist["parity_holds"]
+        and quality_check["holds"]
+        and processing_check["holds"]
+        and security_check["holds"]
         else 1
     )
 
