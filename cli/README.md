@@ -22,6 +22,22 @@ datafoundry export   --platform <name>         # export config (secret-free, rep
 datafoundry destroy  --platform <name> [--wait] # destroy a platform
 ```
 
+## Semantic layer (feature 006)
+
+```text
+datafoundry semantic model set --config <path>          # define a semantic model
+datafoundry semantic model publish <model_id> [--classification breaking|non_breaking]
+datafoundry semantic model approve <publication_id>     # approve a publication
+datafoundry semantic test run <test_id>                 # run a semantic test
+datafoundry semantic discovery --q "customer revenue"   # search business terms
+datafoundry metric query <metric_id> [--dimensions] [--filters] [--as-of]
+datafoundry metric describe <metric_id>
+datafoundry metric deprecate <metric_id> [--successor <id>] [--period <days>]
+```
+
+See `../specs/006-semantic-layer/quickstart.md` for the runnable scenarios
+(define/consume, governed lifecycle, access policies, discovery, deprecation).
+
 ## Configuration (environment)
 
 | Var | Purpose |

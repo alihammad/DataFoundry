@@ -132,3 +132,53 @@ production.
 Note: `GET /runs/{id}` and `POST /runs/{id}/retry` are shared with the
 deployment API (feature 001). The ingestion router is registered first and
 dispatches by run type.
+
+## Semantic layer (feature 006)
+
+Define business metrics once over Gold/Silver datasets and consume them
+everywhere with the same value, governed through a GitOps lifecycle. Design
+artifacts in `../specs/006-semantic-layer/` (contracts, data model, quickstart).
+
+### Architecture
+
+```text
+src/datafoundry/controlplane/semantic/
+├── model/          # compose_semantic_model: validate config -> resolve datasets -> build model
+├── compute/        # compile_metric_query + compute_metric over DuckDB via the gateway
+│   └── gateway.py  # SemanticGateway ABC + SimulatedSemanticGateway (in-memory fixtures)
+├── tests/          # SemanticTest ABC, registry, and the four categories
+├── lifecycle.py    # propose -> validate -> approve -> publish (GitOps, FR-003/004/005)
+├── access.py       # role-based visibility + column/row protection (reuses feature 005)
+├── discovery.py    # search business terms; certified vs draft (FR-011)
+├── consumers.py    # consumer registration + breaking-change notification (FR-005/010)
+└── deprecation.py  # metric deprecation with successor + availability period (FR-010)
+```
+
+The semantic engine never talks to a cloud SDK directly — it goes through
+`SemanticGateway`. `SimulatedSemanticGateway` provides in-memory fake
+Gold/Silver tables (orders, customers) with protected columns, row-level
+restrictions, staleness, and quality-state flags plus fault-injection hooks
+(`force_stale_data`, `force_quality_failure`, `force_fanout`) so every
+metric-definition, semantic-test, publication, access, and discovery path is
+exercisable offline.
+
+### API surface
+
+- `POST /semantic/models`, `GET /semantic/models[/{id}]`
+- `POST /semantic/models/{id}/metrics`, `GET /semantic/metrics/{id}`,
+  `POST /semantic/metrics/{id}/query`
+- `POST /semantic/models/{id}/tests`, `POST /semantic/tests/{id}/run`
+- `POST /semantic/models/{id}/publish`, `POST /publications/{id}/approve`,
+  `GET /semantic/models/{id}/publications`
+- `GET /semantic/discovery?q=...`
+- `POST /semantic/metrics/{id}/consumers`, `GET /semantic/metrics/{id}/consumers`
+- `POST /semantic/metrics/{id}/deprecate`
+
+### Governance
+
+A metric change flows through propose → validate → approve → publish. Semantic
+tests (calculation, reconciliation, relationship, filter) run at publish time;
+a failing test blocks publication with failure detail (FR-004). Breaking
+changes require explicit approval and notify registered consumers (FR-005).
+Deprecated metrics remain available for a bounded period with a successor
+reference (FR-010).

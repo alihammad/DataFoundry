@@ -146,8 +146,8 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 - [X] T038 [P] Implement metric deprecation in `control-plane/src/datafoundry/controlplane/semantic/deprecation.py` and `api/metrics.py` (`POST /semantic/metrics/{id}/deprecate`; successor reference; time-bounded continued availability; deprecation notice in results, FR-010).
 - [X] T039 [P] Add semantic health runner (optional) in `control-plane/src/datafoundry/controlplane/health/runners.py` (semantic-layer health check).
 - [X] T040 [P] Additional unit tests for consumer registration, deprecation, and discovery edge cases in `control-plane/tests/unit/test_semantic_core.py`.
-- [ ] T041 Run quickstart.md validation (Scenarios 1–5) end to end; verify ruff check + format clean repo-wide; verify alembic offline SQL generates the new tables.
-- [ ] T042 [P] Documentation updates: expand `control-plane/README.md` and `cli/README.md` with semantic-layer usage; update `docs/` if needed.
+- [X] T041 Run quickstart.md validation (Scenarios 1–5) end to end; verify ruff check + format clean repo-wide; verify alembic offline SQL generates the new tables.
+- [X] T042 [P] Documentation updates: expand `control-plane/README.md` and `cli/README.md` with semantic-layer usage; update `docs/` if needed.
 
 ---
 
