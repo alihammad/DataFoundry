@@ -240,3 +240,41 @@ class TestSemanticTestRegistry:
             "relationship",
             "filter",
         }
+
+
+class TestSemanticAccess:
+    """T031: access-policy enforcement (US3, FR-007)."""
+
+    def test_row_filters_applied_to_query(self):
+        gw = SimulatedSemanticGateway()
+        result = compute_metric(
+            gateway=gw,
+            dataset="customers",
+            layer="silver",
+            measure_column="customer_id",
+            aggregation="count",
+            filter_spec=None,
+            dimensions=[],
+            definition_version=1,
+            row_filters=["segment != 'vip'"],
+        )
+        # 3 customers; vip (Bob) excluded -> 2 (US3-AC3).
+        assert result.value == 2
+
+    def test_protected_column_masked_in_dimension_values(self):
+        gw = SimulatedSemanticGateway()
+        result = compute_metric(
+            gateway=gw,
+            dataset="customers",
+            layer="silver",
+            measure_column="customer_id",
+            aggregation="count",
+            filter_spec=None,
+            dimensions=["email"],
+            definition_version=1,
+            protected_columns=["email"],
+        )
+        # email is protected -> masked in dimension values (US3-AC2, SC-005).
+        assert result.dimension_values
+        for row in result.dimension_values:
+            assert row["email"] == "[REDACTED]"

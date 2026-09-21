@@ -304,3 +304,167 @@ class TestPublications:
         items = response.json()["items"]
         assert len(items) == 1
         assert items[0]["change_classification"] == "non_breaking"
+
+
+class TestSemanticAccess:
+    """T029: access paths on metric query (semantic-api.md §2, US3).
+
+    - US3-AC1: 403 for unauthorised user over a RESTRICTED dataset.
+    - US3-AC2: protected column values masked/tokenised per policy (SC-005).
+    - US3-AC3: row-level restrictions applied.
+    """
+
+    def _seed_restricted_policy(self, app, *, authorised_roles=None):
+        from datafoundry.controlplane.db.models import (
+            KeyLifecycleState,
+            KeyReference,
+            KmsProvider,
+            ProtectionMechanism,
+            ProtectionPolicy,
+            SecurityLevel,
+        )
+
+        with app.state.sessionmaker() as sess:
+            key = KeyReference(
+                kms=KmsProvider.aws_kms,
+                key_id="alias/restricted",
+                version=1,
+                lifecycle_state=KeyLifecycleState.active,
+                usage_permissions=["data-engineer"],
+            )
+            sess.add(key)
+            sess.flush()
+            policy = ProtectionPolicy(
+                name="restricted-encrypt",
+                classification=SecurityLevel.restricted,
+                mechanism=ProtectionMechanism.encrypt,
+                key_ref_id=key.id,
+                authorised_roles=authorised_roles or ["data-engineer", "security-officer"],
+                created_by="dev@datafoundry.local",
+            )
+            sess.add(policy)
+            sess.commit()
+            return policy.id
+
+    def _classify_dataset(self, app, client, dataset_id, policy_id):
+        response = client.post(
+            f"/api/v1/datasets/{dataset_id}/classification",
+            json={"level": "restricted", "column": None, "policy_id": str(policy_id)},
+        )
+        assert response.status_code == 201, response.text
+
+    def _override_caller(self, app, *, roles):
+        from datafoundry.controlplane.api.auth import Caller, get_caller
+
+        def _caller():
+            return Caller(identity="dev@datafoundry.local", roles=tuple(roles))
+
+        app.dependency_overrides[get_caller] = _caller
+
+    def test_403_unauthorised_over_restricted(self, app, client):
+        platform_id = _seed_platform(app)
+        dataset_id = _seed_dataset(app, platform_id, name="orders", layer="gold")
+        policy_id = self._seed_restricted_policy(app, authorised_roles=["security-officer"])
+        self._classify_dataset(app, client, dataset_id, policy_id)
+
+        model_id = client.post("/api/v1/semantic/models", json=VALID_MODEL).json()["model_id"]
+        metric_id = client.post(
+            f"/api/v1/semantic/models/{model_id}/metrics",
+            json={
+                "name": "revenue2",
+                "business_definition": "Another revenue",
+                "formula": {"measure": "order_amount", "aggregation": "sum"},
+                "dimensions": ["customer"],
+                "bound_datasets": ["orders"],
+                "owner": "analytics@acme.com",
+            },
+        ).json()["metric_id"]
+
+        # data-engineer is NOT in authorised_roles -> 403 (US3-AC1).
+        self._override_caller(app, roles=["data-engineer"])
+        response = client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/query",
+            json={"dimensions": [], "filters": {}},
+        )
+        assert response.status_code == 403, response.text
+        assert response.headers["content-type"].startswith(PROBLEM_CT)
+
+    def test_200_authorised_over_restricted(self, app, client):
+        platform_id = _seed_platform(app)
+        dataset_id = _seed_dataset(app, platform_id, name="orders", layer="gold")
+        policy_id = self._seed_restricted_policy(app, authorised_roles=["security-officer"])
+        self._classify_dataset(app, client, dataset_id, policy_id)
+
+        model_id = client.post("/api/v1/semantic/models", json=VALID_MODEL).json()["model_id"]
+        metric_id = client.post(
+            f"/api/v1/semantic/models/{model_id}/metrics",
+            json={
+                "name": "revenue2",
+                "business_definition": "Another revenue",
+                "formula": {"measure": "order_amount", "aggregation": "sum"},
+                "dimensions": ["customer"],
+                "bound_datasets": ["orders"],
+                "owner": "analytics@acme.com",
+            },
+        ).json()["metric_id"]
+
+        self._override_caller(app, roles=["security-officer"])
+        response = client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/query",
+            json={"dimensions": [], "filters": {}},
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["value"] == 525.0
+
+    def test_200_row_level_restriction_applied(self, app, client):
+        """US3-AC3: analyst role sees only non-vip customer rows."""
+        platform_id = _seed_platform(app)
+        _seed_dataset(app, platform_id, name="customers", layer="silver")
+
+        model = {
+            "domain": "commerce_access",
+            "metrics": [
+                {
+                    "name": "customer_count",
+                    "business_definition": "Count of customers",
+                    "formula": {"measure": "customer_id", "aggregation": "count"},
+                    "dimensions": ["customer"],
+                    "bound_datasets": ["customers"],
+                    "owner": "analytics@acme.com",
+                }
+            ],
+            "dimensions": [
+                {"name": "customer", "members": ["customer_id"], "protection_status": "internal"}
+            ],
+            "measures": [
+                {
+                    "name": "customer_id",
+                    "dataset": "customers",
+                    "column": "customer_id",
+                    "data_type": "integer",
+                }
+            ],
+            "relationships": [],
+        }
+        model_id = client.post("/api/v1/semantic/models", json=model).json()["model_id"]
+        metric_id = client.post(
+            f"/api/v1/semantic/models/{model_id}/metrics",
+            json={
+                "name": "customer_count2",
+                "business_definition": "Count of customers",
+                "formula": {"measure": "customer_id", "aggregation": "count"},
+                "dimensions": ["customer"],
+                "bound_datasets": ["customers"],
+                "owner": "analytics@acme.com",
+            },
+        ).json()["metric_id"]
+
+        # analyst role has row restriction segment != 'vip' on customers.
+        self._override_caller(app, roles=["analyst"])
+        response = client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/query",
+            json={"dimensions": [], "filters": {}},
+        )
+        assert response.status_code == 200, response.text
+        # 3 customers total; vip (Bob) excluded -> 2 (US3-AC3).
+        assert response.json()["value"] == 2

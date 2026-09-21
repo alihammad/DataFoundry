@@ -74,6 +74,7 @@ class MetricQueryResponse(BaseModel):
     metric_id: uuid.UUID
     value: float | int
     dimensions: dict[str, Any]
+    dimension_values: list[dict[str, Any]] = []
     definition_version: int
     dataset_versions: dict[str, Any]
     freshness: str | None
@@ -214,6 +215,18 @@ def query_metric(
     dataset = session.get(Dataset, measure.dataset_id)
     dataset_name = dataset.name if dataset else measure.dataset_id
 
+    # US3: enforce role-based visibility + column/row protection (FR-007).
+    from datafoundry.controlplane.semantic.access import enforce_metric_access
+
+    access = enforce_metric_access(
+        session,
+        caller_identity=caller.identity,
+        caller_roles=list(caller.roles),
+        metric=metric,
+        dataset=dataset,
+        gateway=semantic_gateway,
+    )
+
     try:
         result = compute_metric(
             gateway=semantic_gateway,
@@ -224,6 +237,8 @@ def query_metric(
             filter_spec=filter_spec,
             dimensions=body.dimensions,
             definition_version=model.version if model else 1,
+            row_filters=access.row_filters,
+            protected_columns=access.protected_columns,
         )
     except MetricCompilationError as exc:
         raise ConfigValidationError(
@@ -262,6 +277,7 @@ def query_metric(
         metric_id=metric.id,
         value=result.value,
         dimensions={},
+        dimension_values=result.dimension_values,
         definition_version=result.definition_version,
         dataset_versions=result.dataset_versions,
         freshness=result.freshness,

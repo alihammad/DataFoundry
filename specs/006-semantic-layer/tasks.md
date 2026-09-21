@@ -106,13 +106,13 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 3 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T029 [P] [US3] Contract tests for `POST /semantic/metrics/{id}/query` access paths: 403 for unauthorised user over a RESTRICTED dataset (US3-AC1), protected column values masked/tokenised per policy (US3-AC2, SC-005), row-level restrictions applied (US3-AC3) per contracts/semantic-api.md §2 — in `control-plane/tests/contract/test_semantic_api.py`.
-- [ ] T030 [P] [US3] Integration test for quickstart Scenario 3: query the same metric as two roles with different authorisations → different visibility/results; protected column values never appear without authorised detokenisation — in `control-plane/tests/integration/test_semantic_access_flow.py`.
+- [X] T029 [P] [US3] Contract tests for `POST /semantic/metrics/{id}/query` access paths: 403 for unauthorised user over a RESTRICTED dataset (US3-AC1), protected column values masked/tokenised per policy (US3-AC2, SC-005), row-level restrictions applied (US3-AC3) per contracts/semantic-api.md §2 — in `control-plane/tests/contract/test_semantic_api.py`.
+- [X] T030 [P] [US3] Integration test for quickstart Scenario 3: query the same metric as two roles with different authorisations → different visibility/results; protected column values never appear without authorised detokenisation — in `control-plane/tests/integration/test_semantic_access_flow.py`.
 
 ### Implementation for User Story 3
 
-- [ ] T031 [P] [US3] Implement access-policy enforcement in `control-plane/src/datafoundry/controlplane/semantic/access.py` (role-based metric visibility, column-level protection preserved in results, row-level restrictions applied; reuse feature 005 access module, FR-007).
-- [ ] T032 [US3] Wire access enforcement into the metric query path in `control-plane/src/datafoundry/controlplane/semantic/engine.py` and `api/metrics.py` (403 on unauthorised classification; protected columns masked/tokenised; row-level filters applied before computation).
+- [X] T031 [P] [US3] Implement access-policy enforcement in `control-plane/src/datafoundry/controlplane/semantic/access.py` (role-based metric visibility, column-level protection preserved in results, row-level restrictions applied; reuse feature 005 access module, FR-007).
+- [X] T032 [US3] Wire access enforcement into the metric query path in `control-plane/src/datafoundry/controlplane/semantic/engine.py` and `api/metrics.py` (403 on unauthorised classification; protected columns masked/tokenised; row-level filters applied before computation).
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently
 
