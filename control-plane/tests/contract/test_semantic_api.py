@@ -537,3 +537,107 @@ class TestSemanticDiscovery:
         response = client.get("/api/v1/semantic/discovery", params={"q": "nonexistent"})
         assert response.status_code == 200, response.text
         assert response.json()["items"] == []
+
+
+class TestSemanticConsumers:
+    """T037: consumer registration + listing (semantic-api.md §5, FR-005)."""
+
+    def _define_metric(self, app, client, platform_id):
+        model_id = _define_model(app, client, platform_id)
+        return client.post(
+            f"/api/v1/semantic/models/{model_id}/metrics",
+            json={
+                "name": "revenue2",
+                "business_definition": "Another revenue",
+                "formula": {"measure": "order_amount", "aggregation": "sum"},
+                "dimensions": ["customer"],
+                "bound_datasets": ["orders"],
+                "owner": "analytics@acme.com",
+            },
+        ).json()["metric_id"]
+
+    def test_201_register_consumer(self, app, client):
+        platform_id = _seed_platform(app)
+        metric_id = self._define_metric(app, client, platform_id)
+        response = client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/consumers",
+            json={"consumer_identity": "bi-team@acme.com", "consumption_path": "bi"},
+        )
+        assert response.status_code == 201, response.text
+        uuid.UUID(response.json()["consumer_id"])
+
+    def test_200_list_consumers(self, app, client):
+        platform_id = _seed_platform(app)
+        metric_id = self._define_metric(app, client, platform_id)
+        client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/consumers",
+            json={"consumer_identity": "bi-team@acme.com", "consumption_path": "bi"},
+        )
+        response = client.get(f"/api/v1/semantic/metrics/{metric_id}/consumers")
+        assert response.status_code == 200, response.text
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["consumer_identity"] == "bi-team@acme.com"
+        assert items[0]["consumption_path"] == "bi"
+
+    def test_422_invalid_consumption_path(self, app, client):
+        platform_id = _seed_platform(app)
+        metric_id = self._define_metric(app, client, platform_id)
+        response = client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/consumers",
+            json={"consumer_identity": "x@acme.com", "consumption_path": "nope"},
+        )
+        assert response.status_code == 422, response.text
+        assert response.json()["errors"]
+
+
+class TestSemanticDeprecation:
+    """T038: metric deprecation (semantic-api.md §7, FR-010)."""
+
+    def _define_metrics(self, app, client, platform_id):
+        model_id = _define_model(app, client, platform_id)
+        metric_id = client.post(
+            f"/api/v1/semantic/models/{model_id}/metrics",
+            json={
+                "name": "revenue2",
+                "business_definition": "Another revenue",
+                "formula": {"measure": "order_amount", "aggregation": "sum"},
+                "dimensions": ["customer"],
+                "bound_datasets": ["orders"],
+                "owner": "analytics@acme.com",
+            },
+        ).json()["metric_id"]
+        successor_id = client.post(
+            f"/api/v1/semantic/models/{model_id}/metrics",
+            json={
+                "name": "revenue3",
+                "business_definition": "Another revenue v2",
+                "formula": {"measure": "order_amount", "aggregation": "sum"},
+                "dimensions": ["customer"],
+                "bound_datasets": ["orders"],
+                "owner": "analytics@acme.com",
+            },
+        ).json()["metric_id"]
+        return metric_id, successor_id
+
+    def test_200_deprecate_with_successor(self, app, client):
+        platform_id = _seed_platform(app)
+        metric_id, successor_id = self._define_metrics(app, client, platform_id)
+        response = client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/deprecate",
+            json={"successor_metric_id": successor_id, "availability_period_days": 30},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["successor_metric_id"] == successor_id
+        assert data["availability_period_days"] == 30
+
+    def test_422_unknown_successor(self, app, client):
+        platform_id = _seed_platform(app)
+        metric_id, _ = self._define_metrics(app, client, platform_id)
+        response = client.post(
+            f"/api/v1/semantic/metrics/{metric_id}/deprecate",
+            json={"successor_metric_id": str(uuid.uuid4()), "availability_period_days": 30},
+        )
+        assert response.status_code == 422, response.text
+        assert response.json()["errors"]

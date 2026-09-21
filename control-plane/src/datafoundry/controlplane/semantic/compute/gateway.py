@@ -53,6 +53,10 @@ class SemanticGateway(abc.ABC):
         """Return table metadata: protected columns, row restrictions,
         quality state, freshness."""
 
+    @abc.abstractmethod
+    def health(self) -> tuple[bool, str]:
+        """Probe semantic-layer readiness (T039)."""
+
 
 class SimulatedSemanticGateway(SemanticGateway):
     """In-memory semantic inventory (dev mode / tests)."""
@@ -199,6 +203,12 @@ class SimulatedSemanticGateway(SemanticGateway):
             "quality_state": quality_state,
             "last_updated": last_updated,
         }
+
+    def health(self) -> tuple[bool, str]:
+        """Probe semantic-layer readiness (T039)."""
+        if not self._tables:
+            return False, "no semantic tables registered"
+        return True, f"{len(self._tables)} semantic tables registered"
 
 
 def build_semantic_gateway(settings: Any) -> SemanticGateway:

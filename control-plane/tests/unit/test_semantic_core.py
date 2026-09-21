@@ -8,6 +8,8 @@ payloads.
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from datafoundry.controlplane.config.semantic_schema import (
     SemanticConfigError,
@@ -336,3 +338,199 @@ class TestSemanticDiscovery:
         items = search_business_terms(session, query="revenue", include_drafts=True)
         assert len(items) == 1
         assert items[0].certification_state == "draft"
+
+    def test_match_on_business_definition(self, session):
+        from datafoundry.controlplane.semantic.discovery import search_business_terms
+
+        self._seed_model(session, certification="published")
+        items = search_business_terms(session, query="order amount")
+        assert len(items) == 1
+        assert items[0].name == "revenue"
+
+
+class TestSemanticConsumers:
+    """T037: consumer registration + notification (FR-005, FR-010)."""
+
+    def _seed_metric(self, session):
+        from datafoundry.controlplane.db.models import Metric, SemanticModel
+
+        model = SemanticModel(
+            domain="commerce",
+            version=1,
+            config_yaml="",
+            config_hash="abc",
+            certification_state="draft",
+            created_by="dev@datafoundry.local",
+        )
+        session.add(model)
+        session.flush()
+        metric = Metric(
+            model_id=model.id,
+            name="revenue",
+            business_definition="Sum of order amount",
+            formula={"measure": "order_amount", "aggregation": "sum"},
+            dimensions=["customer"],
+            bound_datasets=["orders"],
+            owner_identity="analytics@acme.com",
+        )
+        session.add(metric)
+        session.flush()
+        return metric
+
+    def test_register_and_list(self, session):
+        from datafoundry.controlplane.semantic.consumers import (
+            list_consumers,
+            register_consumer,
+        )
+
+        metric = self._seed_metric(session)
+        register_consumer(
+            session,
+            metric_id=metric.id,
+            consumer_identity="bi-team@acme.com",
+            consumption_path="bi",
+        )
+        consumers = list_consumers(session, metric_id=metric.id)
+        assert len(consumers) == 1
+        assert consumers[0].consumer_identity == "bi-team@acme.com"
+        assert consumers[0].consumption_path == "bi"
+
+    def test_register_duplicate_is_idempotent(self, session):
+        from datafoundry.controlplane.semantic.consumers import (
+            list_consumers,
+            register_consumer,
+        )
+
+        metric = self._seed_metric(session)
+        register_consumer(
+            session,
+            metric_id=metric.id,
+            consumer_identity="bi-team@acme.com",
+            consumption_path="bi",
+        )
+        register_consumer(
+            session,
+            metric_id=metric.id,
+            consumer_identity="bi-team@acme.com",
+            consumption_path="bi",
+        )
+        assert len(list_consumers(session, metric_id=metric.id)) == 1
+
+    def test_invalid_consumption_path(self, session):
+        from datafoundry.controlplane.semantic.consumers import (
+            ConsumerRegistrationError,
+            register_consumer,
+        )
+
+        metric = self._seed_metric(session)
+        with pytest.raises(ConsumerRegistrationError):
+            register_consumer(
+                session,
+                metric_id=metric.id,
+                consumer_identity="x@acme.com",
+                consumption_path="nope",
+            )
+
+    def test_notify_consumers(self, session):
+        from datafoundry.controlplane.semantic.consumers import (
+            notify_consumers,
+            register_consumer,
+        )
+
+        metric = self._seed_metric(session)
+        register_consumer(
+            session,
+            metric_id=metric.id,
+            consumer_identity="bi-team@acme.com",
+            consumption_path="bi",
+        )
+        notified = notify_consumers(
+            session, metric_id=metric.id, message="breaking change (FR-005)"
+        )
+        assert notified == ["bi-team@acme.com"]
+
+
+class TestSemanticDeprecation:
+    """T038: metric deprecation (FR-010)."""
+
+    def _seed_metrics(self, session):
+        from datafoundry.controlplane.db.models import Metric, SemanticModel
+
+        model = SemanticModel(
+            domain="commerce",
+            version=1,
+            config_yaml="",
+            config_hash="abc",
+            certification_state="draft",
+            created_by="dev@datafoundry.local",
+        )
+        session.add(model)
+        session.flush()
+        metric = Metric(
+            model_id=model.id,
+            name="revenue",
+            business_definition="Sum of order amount",
+            formula={"measure": "order_amount", "aggregation": "sum"},
+            dimensions=["customer"],
+            bound_datasets=["orders"],
+            owner_identity="analytics@acme.com",
+        )
+        session.add(metric)
+        session.flush()
+        successor = Metric(
+            model_id=model.id,
+            name="revenue_v2",
+            business_definition="Sum of order amount v2",
+            formula={"measure": "order_amount", "aggregation": "sum"},
+            dimensions=["customer"],
+            bound_datasets=["orders"],
+            owner_identity="analytics@acme.com",
+        )
+        session.add(successor)
+        session.flush()
+        return metric, successor
+
+    def test_deprecate_with_successor(self, session):
+        from datafoundry.controlplane.db.models import CertificationState, SemanticModel
+        from datafoundry.controlplane.semantic.deprecation import deprecate_metric
+
+        metric, successor = self._seed_metrics(session)
+        result = deprecate_metric(
+            session,
+            metric_id=metric.id,
+            successor_metric_id=successor.id,
+            availability_period_days=30,
+        )
+        assert result.successor_metric_id == successor.id
+        assert result.availability_period_days == 30
+        model = session.get(SemanticModel, metric.model_id)
+        assert model.certification_state == CertificationState.deprecated
+
+    def test_deprecate_unknown_metric(self, session):
+        from datafoundry.controlplane.semantic.deprecation import (
+            DeprecationError,
+            deprecate_metric,
+        )
+
+        with pytest.raises(DeprecationError):
+            deprecate_metric(
+                session,
+                metric_id=uuid.uuid4(),
+                successor_metric_id=None,
+                availability_period_days=30,
+            )
+
+    def test_deprecate_unknown_successor(self, session):
+        from datafoundry.controlplane.semantic.deprecation import (
+            DeprecationError,
+            deprecate_metric,
+        )
+
+        metric, _ = self._seed_metrics(session)
+        with pytest.raises(DeprecationError):
+            deprecate_metric(
+                session,
+                metric_id=metric.id,
+                successor_metric_id=uuid.uuid4(),
+                availability_period_days=30,
+            )

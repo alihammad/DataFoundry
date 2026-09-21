@@ -53,3 +53,28 @@ def metric_describe(
         raise typer.Exit(code=2)
     console.print(json.dumps(response.json(), indent=2))
     raise typer.Exit(code=0)
+
+
+@app.command("deprecate")
+def metric_deprecate(
+    metric_id: str = typer.Argument(..., help="Metric id"),
+    successor: str = typer.Option(None, "--successor", help="Successor metric id"),
+    period: int = typer.Option(30, "--period", help="Availability period in days"),
+    api_url: str = typer.Option(None, "--api-url", help="Control-plane base URL"),
+) -> None:
+    """Deprecate a metric with an optional successor (FR-010)."""
+    body = {
+        "successor_metric_id": successor,
+        "availability_period_days": period,
+    }
+    with ApiClient(base_url=api_url) as client:
+        response = client.post(f"/semantic/metrics/{metric_id}/deprecate", json_body=body)
+    if response.status_code != 200:
+        error_console.print(ApiClient.problem_summary(response))
+        raise typer.Exit(code=2)
+    data = response.json()
+    console.print(
+        f"[green]✓ deprecated[/green] metric_id={data['metric_id']} "
+        f"successor={data['successor_metric_id']} period={data['availability_period_days']}"
+    )
+    raise typer.Exit(code=0)

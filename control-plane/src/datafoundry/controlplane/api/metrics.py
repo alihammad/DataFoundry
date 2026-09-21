@@ -284,3 +284,60 @@ def query_metric(
         quality_state=result.quality_state,
         deprecation_notice=None,
     )
+
+
+class MetricDeprecateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    successor_metric_id: uuid.UUID | None = None
+    availability_period_days: int = 30
+
+
+class MetricDeprecated(BaseModel):
+    metric_id: uuid.UUID
+    successor_metric_id: uuid.UUID | None
+    availability_period_days: int
+
+
+@router.post("/semantic/metrics/{metric_id}/deprecate", response_model=MetricDeprecated)
+def deprecate_metric_endpoint(
+    metric_id: uuid.UUID,
+    body: MetricDeprecateRequest,
+    caller: Caller = Depends(get_caller),
+    session: Session = Depends(get_db),
+) -> MetricDeprecated:
+    """Deprecate a metric with an optional successor (FR-010)."""
+    from datafoundry.controlplane.semantic.deprecation import (
+        DeprecationError,
+        deprecate_metric,
+    )
+
+    try:
+        result = deprecate_metric(
+            session,
+            metric_id=metric_id,
+            successor_metric_id=body.successor_metric_id,
+            availability_period_days=body.availability_period_days,
+        )
+    except DeprecationError as exc:
+        raise ConfigValidationError(
+            [
+                {
+                    "path": "$",
+                    "code": "invalid_value",
+                    "message": str(exc),
+                    "remediation": "Reference an existing metric as successor",
+                }
+            ]
+        ) from exc
+    AuditService(session).semantic_metric_deprecated(
+        actor=caller.identity,
+        metric_id=metric_id,
+        successor_metric_id=body.successor_metric_id,
+    )
+    session.flush()
+    return MetricDeprecated(
+        metric_id=result.metric_id,
+        successor_metric_id=result.successor_metric_id,
+        availability_period_days=result.availability_period_days,
+    )

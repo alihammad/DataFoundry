@@ -186,6 +186,19 @@ class SyntheticDatapointRunner(HealthCheckRunner):
         return _outcome("monitoring", ok, detail)
 
 
+class SemanticHealthRunner(HealthCheckRunner):
+    """semantic_layer: the semantic gateway has registered Gold/Silver tables."""
+
+    runner_id = "semantic-health"
+
+    def run(self, target: HealthCheckTarget, gateway) -> HealthCheckOutcome:
+        if hasattr(gateway, "health"):
+            ok, detail = gateway.health()
+            return _outcome("semantic_layer", ok, detail)
+        ok, detail = gateway.endpoint_responds(target.target or "semantic_layer")
+        return _outcome("semantic_layer", ok, detail)
+
+
 def build_runner_registry() -> RunnerRegistry:
     registry = RunnerRegistry()
     for runner in (
@@ -200,6 +213,7 @@ def build_runner_registry() -> RunnerRegistry:
         EndpointRespondsRunner(),
         RunnerHeartbeatRunner(),
         SyntheticDatapointRunner(),
+        SemanticHealthRunner(),
     ):
         registry.register(runner)
     return registry
