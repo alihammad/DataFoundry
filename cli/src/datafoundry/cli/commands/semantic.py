@@ -101,3 +101,29 @@ def semantic_test_run(
         raise typer.Exit(code=0)
     error_console.print(ApiClient.problem_summary(response))
     raise typer.Exit(code=2)
+
+
+@app.command("discovery")
+def semantic_discovery(
+    q: str = typer.Option("", "--q", help="Business term to search"),
+    api_url: str = typer.Option(None, "--api-url", help="Control-plane base URL"),
+) -> None:
+    """Search business terms (FR-011, US4, quickstart Scenario 4)."""
+    with ApiClient(base_url=api_url) as client:
+        response = client.get("/semantic/discovery", params={"q": q})
+    if response.status_code != 200:
+        error_console.print(ApiClient.problem_summary(response))
+        raise typer.Exit(code=2)
+    items = response.json()["items"]
+    if not items:
+        console.print("[yellow]no certified metrics found[/yellow]")
+        raise typer.Exit(code=0)
+    for item in items:
+        console.print(
+            f"[green]{item['name']}[/green] ({item['certification_state']}) "
+            f"owner={item['owner_identity']} quality={item['quality_score']} "
+            f"freshness={item['freshness']}"
+        )
+        console.print(f"  {item['business_definition']}")
+        console.print(f"  consuming_teams={item['consuming_teams']}")
+    raise typer.Exit(code=0)

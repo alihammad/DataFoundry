@@ -468,3 +468,72 @@ class TestSemanticAccess:
         assert response.status_code == 200, response.text
         # 3 customers total; vip (Bob) excluded -> 2 (US3-AC3).
         assert response.json()["value"] == 2
+
+
+class TestSemanticDiscovery:
+    """T033: discovery search (semantic-api.md §6, US4, FR-011).
+
+    - US4-AC1: certified metric surfaces with complete metadata.
+    - US4-AC2: drafts hidden from general users or clearly marked.
+    """
+
+    def _publish_model(self, app, client, model_id):
+        # Define a passing test then publish + approve -> certified.
+        response = client.post(
+            f"/api/v1/semantic/models/{model_id}/tests",
+            json={
+                "tests": [
+                    {
+                        "name": "revenue_calculation",
+                        "category": "calculation",
+                        "parameters": {
+                            "reference_data": "orders_ref",
+                            "expected_value": 525.0,
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 201, response.text
+        publication_id = client.post(
+            f"/api/v1/semantic/models/{model_id}/publish",
+            json={"change_classification": "non_breaking"},
+        ).json()["publication_id"]
+        approved = client.post(f"/api/v1/publications/{publication_id}/approve", json={})
+        assert approved.status_code == 200, approved.text
+
+    def test_200_certified_metric_surfaces(self, app, client):
+        platform_id = _seed_platform(app)
+        model_id = _define_model(app, client, platform_id)
+        self._publish_model(app, client, model_id)
+
+        response = client.get("/api/v1/semantic/discovery", params={"q": "revenue"})
+        assert response.status_code == 200, response.text
+        items = response.json()["items"]
+        assert len(items) == 1
+        item = items[0]
+        assert item["name"] == "revenue"
+        assert item["business_definition"] == "Sum of order amount"
+        assert item["owner_identity"] == "analytics@acme.com"
+        assert item["certification_state"] == "published"
+        assert item["lineage"]["domain"] == "commerce"
+        assert "consuming_teams" in item
+
+    def test_200_draft_hidden_from_general_users(self, app, client):
+        """US4-AC2: draft definitions hidden from general users."""
+        platform_id = _seed_platform(app)
+        _define_model(app, client, platform_id)
+        # Model stays draft (no publish).
+
+        response = client.get("/api/v1/semantic/discovery", params={"q": "revenue"})
+        assert response.status_code == 200, response.text
+        assert response.json()["items"] == []
+
+    def test_200_no_match_returns_empty(self, app, client):
+        platform_id = _seed_platform(app)
+        model_id = _define_model(app, client, platform_id)
+        self._publish_model(app, client, model_id)
+
+        response = client.get("/api/v1/semantic/discovery", params={"q": "nonexistent"})
+        assert response.status_code == 200, response.text
+        assert response.json()["items"] == []

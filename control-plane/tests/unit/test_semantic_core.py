@@ -278,3 +278,61 @@ class TestSemanticAccess:
         assert result.dimension_values
         for row in result.dimension_values:
             assert row["email"] == "[REDACTED]"
+
+
+class TestSemanticDiscovery:
+    """T035: catalog discovery (FR-011, US4)."""
+
+    def _seed_model(self, session, *, certification="draft"):
+        from datafoundry.controlplane.db.models import (
+            CertificationState,
+            Metric,
+            SemanticModel,
+        )
+
+        model = SemanticModel(
+            domain="commerce",
+            version=1,
+            config_yaml="",
+            config_hash="abc",
+            certification_state=CertificationState(certification),
+            created_by="dev@datafoundry.local",
+        )
+        session.add(model)
+        session.flush()
+        metric = Metric(
+            model_id=model.id,
+            name="revenue",
+            business_definition="Sum of order amount",
+            formula={"measure": "order_amount", "aggregation": "sum"},
+            dimensions=["customer"],
+            bound_datasets=["orders"],
+            owner_identity="analytics@acme.com",
+        )
+        session.add(metric)
+        session.flush()
+        return model, metric
+
+    def test_published_surfaces(self, session):
+        from datafoundry.controlplane.semantic.discovery import search_business_terms
+
+        self._seed_model(session, certification="published")
+        items = search_business_terms(session, query="revenue")
+        assert len(items) == 1
+        assert items[0].name == "revenue"
+        assert items[0].certification_state == "published"
+
+    def test_draft_hidden_by_default(self, session):
+        from datafoundry.controlplane.semantic.discovery import search_business_terms
+
+        self._seed_model(session, certification="draft")
+        items = search_business_terms(session, query="revenue")
+        assert items == []
+
+    def test_draft_included_when_requested(self, session):
+        from datafoundry.controlplane.semantic.discovery import search_business_terms
+
+        self._seed_model(session, certification="draft")
+        items = search_business_terms(session, query="revenue", include_drafts=True)
+        assert len(items) == 1
+        assert items[0].certification_state == "draft"

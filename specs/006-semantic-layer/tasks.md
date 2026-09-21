@@ -126,13 +126,13 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 4 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T033 [P] [US4] Contract tests for `GET /semantic/discovery?q=...` (200 with certified metrics + definition/owner/quality_score/freshness/lineage/consuming_teams; drafts hidden or clearly marked) per contracts/semantic-api.md §6 — in `control-plane/tests/contract/test_semantic_api.py`.
-- [ ] T034 [P] [US4] Integration test for quickstart Scenario 4: search a business term → certified metric surfaces with complete metadata; draft definitions clearly distinguished — in `control-plane/tests/integration/test_semantic_discovery_flow.py`.
+- [X] T033 [P] [US4] Contract tests for `GET /semantic/discovery?q=...` (200 with certified metrics + definition/owner/quality_score/freshness/lineage/consuming_teams; drafts hidden or clearly marked) per contracts/semantic-api.md §6 — in `control-plane/tests/contract/test_semantic_api.py`.
+- [X] T034 [P] [US4] Integration test for quickstart Scenario 4: search a business term → certified metric surfaces with complete metadata; draft definitions clearly distinguished — in `control-plane/tests/integration/test_semantic_discovery_flow.py`.
 
 ### Implementation for User Story 4
 
-- [ ] T035 [P] [US4] Implement catalog discovery in `control-plane/src/datafoundry/controlplane/semantic/discovery.py` (search business terms; certified vs draft distinction; surface definition/owner/quality_score/freshness/lineage/consuming_teams, FR-011).
-- [ ] T036 [US4] Implement the discovery API router in `control-plane/src/datafoundry/controlplane/api/discovery.py` (`GET /semantic/discovery`; drafts hidden from general users or clearly marked, US4-AC2).
+- [X] T035 [P] [US4] Implement catalog discovery in `control-plane/src/datafoundry/controlplane/semantic/discovery.py` (search business terms; certified vs draft distinction; surface definition/owner/quality_score/freshness/lineage/consuming_teams, FR-011).
+- [X] T036 [US4] Implement the discovery API router in `control-plane/src/datafoundry/controlplane/api/discovery.py` (`GET /semantic/discovery`; drafts hidden from general users or clearly marked, US4-AC2).
 
 **Checkpoint**: At this point, all user stories should be independently functional
 
