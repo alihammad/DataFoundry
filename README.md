@@ -39,6 +39,26 @@ capability maps to cloud-specific implementations, but the configuration
 format, API contracts, and logical behaviour are identical across AWS and GCP
 (constitution Principle I, FR-002, SC-003).
 
+## Features
+
+All seven spec-kit features are implemented and tested (570 control-plane
+tests pass; ruff clean; parity holds; alembic offline SQL generates 46 tables).
+
+| # | Feature | Status | Spec |
+|---|---|---|---|
+| 001 | One-click platform deployment | ✅ | `specs/001-one-click-platform-deployment/` |
+| 002 | Data ingestion | ✅ | `specs/002-data-ingestion/` |
+| 003 | Medallion processing (Bronze/Silver/Gold) | ✅ | `specs/003-medallion-processing/` |
+| 004 | Data-quality gates | ✅ | `specs/004-data-quality-gates/` |
+| 005 | Security & data protection | ✅ | `specs/005-security-data-protection/` |
+| 006 | Semantic layer | ✅ | `specs/006-semantic-layer/` |
+| 007 | Web UI control plane | ✅ | `specs/007-web-ui-control-plane/` |
+
+Each feature is independently testable via its `quickstart.md` scenarios and
+consumes the prior features' APIs (e.g. the semantic layer computes metrics
+over feature 003 Gold/Silver datasets and enforces feature 005 access
+policies).
+
 ## Quickstart
 
 See [`specs/001-one-click-platform-deployment/quickstart.md`](specs/001-one-click-platform-deployment/quickstart.md)
