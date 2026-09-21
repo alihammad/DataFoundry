@@ -24,6 +24,7 @@ from datafoundry.cli.commands import export as export_cmd
 from datafoundry.cli.commands import gate as gate_cmd
 from datafoundry.cli.commands import ingest as ingest_cmd
 from datafoundry.cli.commands import key as key_cmd
+from datafoundry.cli.commands import metric as metric_cmd
 from datafoundry.cli.commands import override as override_cmd
 from datafoundry.cli.commands import pipeline as pipeline_cmd
 from datafoundry.cli.commands import promote as promote_cmd
@@ -32,6 +33,7 @@ from datafoundry.cli.commands import quality as quality_cmd
 from datafoundry.cli.commands import quarantine as quarantine_cmd
 from datafoundry.cli.commands import query as query_cmd
 from datafoundry.cli.commands import security_audit as security_audit_cmd
+from datafoundry.cli.commands import semantic as semantic_cmd
 from datafoundry.cli.commands import source as source_cmd
 from datafoundry.cli.commands import status as status_cmd
 from datafoundry.cli.commands import token as token_cmd
@@ -68,6 +70,8 @@ app.add_typer(key_cmd.app, name="key")
 app.add_typer(token_cmd.app, name="token")
 app.add_typer(access_cmd.app, name="access")
 app.add_typer(security_audit_cmd.app, name="security-audit")
+app.add_typer(semantic_cmd.app, name="semantic")
+app.add_typer(metric_cmd.app, name="metric")
 
 
 def main() -> None:  # pragma: no cover - console entry point

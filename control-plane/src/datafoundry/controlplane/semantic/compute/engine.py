@@ -8,10 +8,13 @@ the gateway. The same definition produces identical results on both clouds
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 import duckdb
+
+logger = logging.getLogger("datafoundry.semantic.compute")
 
 
 class MetricCompilationError(ValueError):
@@ -126,4 +129,19 @@ def compute_metric(
         dataset_versions={dataset: meta.get("last_updated")},
         freshness=meta.get("last_updated"),
         quality_state=meta.get("quality_state", "unknown"),
+    )
+
+
+def log_metric_query(*, metric_id: str, dataset: str, value: Any, quality_state: str) -> None:
+    """Emit a structured log for a metric query (T021, FR-002).
+
+    Structured via the existing OpenTelemetry/structured-logging channel; never
+    logs raw values or secrets (SC-007).
+    """
+    logger.info(
+        "semantic_metric_query metric_id=%s dataset=%s value=%s quality_state=%s",
+        metric_id,
+        dataset,
+        value,
+        quality_state,
     )

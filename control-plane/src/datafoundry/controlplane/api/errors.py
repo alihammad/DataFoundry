@@ -89,6 +89,17 @@ class NotFoundError(ApiError):
     title = "Resource not found"
 
 
+class GoneError(ApiError):
+    """410 — resource deprecated past its availability period (FR-010)."""
+
+    status_code = 410
+    error_type = "gone"
+    title = "Resource no longer available"
+
+    def __init__(self, detail: str = "", **extensions: Any) -> None:
+        super().__init__(detail, **extensions)
+
+
 def _problem_response(problem: dict[str, Any], status: int) -> JSONResponse:
     return JSONResponse(status_code=status, content=problem, media_type=PROBLEM_CONTENT_TYPE)
 

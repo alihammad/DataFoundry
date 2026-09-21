@@ -59,17 +59,17 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T014 [P] [US1] Contract tests for `POST /semantic/models` (201 with model_id + version; 422 all-errors), `POST /semantic/models/{id}/metrics` (201; 422 invalid formula/duplicate term/secret-scan), `GET /semantic/metrics/{id}` (200 with definition/formula/owner/datasets/lineage), and `POST /semantic/metrics/{id}/query` (200 with value + definition_version + dataset_versions + freshness + quality_state) per contracts/semantic-api.md §1–2 — in `control-plane/tests/contract/test_semantic_api.py`.
-- [ ] T015 [P] [US1] Integration test for quickstart Scenario 1: define a revenue metric, query it through two consumption paths, verify identical results (FR-002, SC-001); change the definition through the governed workflow and verify consumers reflect the new version — in `control-plane/tests/integration/test_metric_consistency_flow.py`.
+- [X] T014 [P] [US1] Contract tests for `POST /semantic/models` (201 with model_id + version; 422 all-errors), `POST /semantic/models/{id}/metrics` (201; 422 invalid formula/duplicate term/secret-scan), `GET /semantic/metrics/{id}` (200 with definition/formula/owner/datasets/lineage), and `POST /semantic/metrics/{id}/query` (200 with value + definition_version + dataset_versions + freshness + quality_state) per contracts/semantic-api.md §1–2 — in `control-plane/tests/contract/test_semantic_api.py`.
+- [X] T015 [P] [US1] Integration test for quickstart Scenario 1: define a revenue metric, query it through two consumption paths, verify identical results (FR-002, SC-001); change the definition through the governed workflow and verify consumers reflect the new version — in `control-plane/tests/integration/test_metric_consistency_flow.py`.
 
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Create `SemanticModel`, `Metric`, `Dimension`, `Measure`, `Relationship` models in `control-plane/src/datafoundry/controlplane/db/models.py` (foundational T005 already added them; wire any story-specific fields).
-- [ ] T017 [P] [US1] Implement the semantic model composition + validation in `control-plane/src/datafoundry/controlplane/semantic/model/model.py` (build a `SemanticModel` from validated config; resolve metric/dimension/measure/relationship references).
-- [ ] T018 [P] [US1] Implement the metric computation engine in `control-plane/src/datafoundry/controlplane/semantic/compute/engine.py` (compile formula → DuckDB query → value; record definition_version + dataset_versions + freshness + quality_state per result, FR-008/FR-012).
-- [ ] T019 [US1] Implement the semantic API routers in `control-plane/src/datafoundry/controlplane/api/semantic.py` and `api/metrics.py` (define model, define metric, describe metric, query metric; audit writes; secret-scan; 422/403/409/410 paths).
-- [ ] T020 [US1] Implement the CLI commands in `cli/src/datafoundry/cli/commands/semantic.py` and `cli/commands/metric.py` (`datafoundry semantic model set`, `datafoundry metric query`, `datafoundry metric describe`); register in `cli/src/datafoundry/cli/main.py`.
-- [ ] T021 [US1] Add logging for semantic operations (structured logs via existing OpenTelemetry) in `control-plane/src/datafoundry/controlplane/semantic/`.
+- [X] T016 [P] [US1] Create `SemanticModel`, `Metric`, `Dimension`, `Measure`, `Relationship` models in `control-plane/src/datafoundry/controlplane/db/models.py` (foundational T005 already added them; wire any story-specific fields).
+- [X] T017 [P] [US1] Implement the semantic model composition + validation in `control-plane/src/datafoundry/controlplane/semantic/model/model.py` (build a `SemanticModel` from validated config; resolve metric/dimension/measure/relationship references).
+- [X] T018 [P] [US1] Implement the metric computation engine in `control-plane/src/datafoundry/controlplane/semantic/compute/engine.py` (compile formula → DuckDB query → value; record definition_version + dataset_versions + freshness + quality_state per result, FR-008/FR-012).
+- [X] T019 [US1] Implement the semantic API routers in `control-plane/src/datafoundry/controlplane/api/semantic.py` and `api/metrics.py` (define model, define metric, describe metric, query metric; audit writes; secret-scan; 422/403/409/410 paths).
+- [X] T020 [US1] Implement the CLI commands in `cli/src/datafoundry/cli/commands/semantic.py` and `cli/commands/metric.py` (`datafoundry semantic model set`, `datafoundry metric query`, `datafoundry metric describe`); register in `cli/src/datafoundry/cli/main.py`.
+- [X] T021 [US1] Add logging for semantic operations (structured logs via existing OpenTelemetry) in `control-plane/src/datafoundry/controlplane/semantic/`.
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 

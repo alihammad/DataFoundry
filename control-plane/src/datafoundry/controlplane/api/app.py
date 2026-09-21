@@ -48,6 +48,9 @@ def _wire_runtime(app: FastAPI, settings: Settings) -> None:
     from datafoundry.controlplane.security.gateway import build_security_gateway
 
     app.state.security_gateway = build_security_gateway(settings)
+    from datafoundry.controlplane.semantic.compute.gateway import build_semantic_gateway
+
+    app.state.semantic_gateway = build_semantic_gateway(settings)
 
     def _dispatch(run_id: uuid.UUID) -> None:
         def _process() -> None:
@@ -320,6 +323,18 @@ def _register_routers(api_router: APIRouter) -> None:
         from datafoundry.controlplane.api import security_audit as security_audit_api
 
         api_router.include_router(security_audit_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import semantic as semantic_api
+
+        api_router.include_router(semantic_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import metrics as metrics_api
+
+        api_router.include_router(metrics_api.router)
     except ImportError:
         pass
 

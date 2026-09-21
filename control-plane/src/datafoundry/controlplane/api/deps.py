@@ -76,6 +76,11 @@ def get_security_gateway(request: Request) -> Any:
     return request.app.state.security_gateway
 
 
+def get_semantic_gateway(request: Request) -> Any:
+    """Semantic gateway for metric computation over Gold/Silver (simulated)."""
+    return request.app.state.semantic_gateway
+
+
 def get_landing_gateway(request: Request) -> Any:
     """Landing gateway for Bronze ingestion writes (simulated)."""
     return request.app.state.landing_gateway
