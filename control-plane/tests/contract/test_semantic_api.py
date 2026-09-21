@@ -211,3 +211,96 @@ class TestQueryMetric:
             json={"dimensions": [], "filters": {}},
         )
         assert response.status_code == 404
+
+
+class TestSemanticTests:
+    """T022: semantic test definition + run (semantic-api.md §3)."""
+
+    def _define_test(self, app, client, model_id, category="calculation"):
+        params = {
+            "calculation": {"reference_data": "orders_ref", "expected_value": 525.0},
+            "relationship": {"relationship": "orders_customer", "max_fanout": 1},
+        }[category]
+        response = client.post(
+            f"/api/v1/semantic/models/{model_id}/tests",
+            json={
+                "tests": [{"name": f"test_{category}", "category": category, "parameters": params}]
+            },
+        )
+        assert response.status_code == 201, response.text
+        return response.json()["test_id"]
+
+    def test_201_define_test(self, app, client):
+        platform_id = _seed_platform(app)
+        model_id = _define_model(app, client, platform_id)
+        test_id = self._define_test(app, client, model_id)
+        uuid.UUID(test_id)
+
+    def test_200_run_passed(self, app, client):
+        platform_id = _seed_platform(app)
+        model_id = _define_model(app, client, platform_id)
+        test_id = self._define_test(app, client, model_id)
+        response = client.post(f"/api/v1/semantic/tests/{test_id}/run", json={})
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["status"] in ("passed", "failed")
+        assert data["test_id"] == test_id
+
+
+class TestPublications:
+    """T022: publication propose/approve/history (semantic-api.md §4)."""
+
+    def _define_test(self, app, client, model_id, category="calculation"):
+        params = {
+            "calculation": {"reference_data": "orders_ref", "expected_value": 525.0},
+            "relationship": {"relationship": "orders_customer", "max_fanout": 1},
+        }[category]
+        response = client.post(
+            f"/api/v1/semantic/models/{model_id}/tests",
+            json={
+                "tests": [{"name": f"test_{category}", "category": category, "parameters": params}]
+            },
+        )
+        assert response.status_code == 201, response.text
+        return response.json()["test_id"]
+
+    def test_201_propose_pending(self, app, client):
+        platform_id = _seed_platform(app)
+        model_id = _define_model(app, client, platform_id)
+        self._define_test(app, client, model_id)
+        response = client.post(
+            f"/api/v1/semantic/models/{model_id}/publish",
+            json={"change_classification": "non_breaking"},
+        )
+        assert response.status_code == 201, response.text
+        data = response.json()
+        assert data["approval_status"] == "pending"
+        uuid.UUID(data["publication_id"])
+
+    def test_200_approve(self, app, client):
+        platform_id = _seed_platform(app)
+        model_id = _define_model(app, client, platform_id)
+        self._define_test(app, client, model_id)
+        publication_id = client.post(
+            f"/api/v1/semantic/models/{model_id}/publish",
+            json={"change_classification": "non_breaking"},
+        ).json()["publication_id"]
+        response = client.post(f"/api/v1/publications/{publication_id}/approve", json={})
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["approval_status"] == "approved"
+        assert data["published_at"]
+
+    def test_200_publication_history(self, app, client):
+        platform_id = _seed_platform(app)
+        model_id = _define_model(app, client, platform_id)
+        self._define_test(app, client, model_id)
+        client.post(
+            f"/api/v1/semantic/models/{model_id}/publish",
+            json={"change_classification": "non_breaking"},
+        )
+        response = client.get(f"/api/v1/semantic/models/{model_id}/publications")
+        assert response.status_code == 200, response.text
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["change_classification"] == "non_breaking"

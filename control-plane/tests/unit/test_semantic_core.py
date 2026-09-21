@@ -232,6 +232,11 @@ class TestSemanticTestRegistry:
         with pytest.raises(UnknownSemanticTestCategoryError):
             resolve_test("nope")
 
-    def test_registry_has_no_implementations_yet(self):
-        # T025 registers concrete categories; until then none resolve.
-        assert default_registry().categories() == ()
+    def test_registry_has_four_categories(self):
+        # T025 registers the four categories.
+        assert set(default_registry().categories()) == {
+            "calculation",
+            "reconciliation",
+            "relationship",
+            "filter",
+        }

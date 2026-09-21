@@ -337,6 +337,18 @@ def _register_routers(api_router: APIRouter) -> None:
         api_router.include_router(metrics_api.router)
     except ImportError:
         pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import semantic_tests as semantic_tests_api
+
+        api_router.include_router(semantic_tests_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import publications as publications_api
+
+        api_router.include_router(publications_api.router)
+    except ImportError:
+        pass
 
 
 #: Module-level app for ``uvicorn datafoundry.controlplane.api.app:app``.

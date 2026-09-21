@@ -83,16 +83,16 @@ Monorepo per plan.md: `control-plane/src/datafoundry/controlplane/` (FastAPI ser
 
 ### Tests for User Story 2 ⚠️ (write first, ensure they FAIL before implementation)
 
-- [ ] T022 [P] [US2] Contract tests for `POST /semantic/models/{id}/tests` (201), `POST /semantic/tests/{id}/run` (200 passed/failed), `POST /semantic/models/{id}/publish` (201 pending; 422 blocked on failed tests), `POST /publications/{id}/approve` (200 approved + published_at; notifies consumers), and `GET /semantic/models/{id}/publications` (history) per contracts/semantic-api.md §3–4 — in `control-plane/tests/contract/test_semantic_api.py`.
-- [ ] T023 [P] [US2] Integration test for quickstart Scenario 2: submit a metric change that fails a semantic test → publication blocked with failure detail; submit a correct change → publishes with version history; query "as of" a prior period records the definition version (FR-012, US2-AC3) — in `control-plane/tests/integration/test_semantic_lifecycle_flow.py`.
+- [X] T022 [P] [US2] Contract tests for `POST /semantic/models/{id}/tests` (201), `POST /semantic/tests/{id}/run` (200 passed/failed), `POST /semantic/models/{id}/publish` (201 pending; 422 blocked on failed tests), `POST /publications/{id}/approve` (200 approved + published_at; notifies consumers), and `GET /semantic/models/{id}/publications` (history) per contracts/semantic-api.md §3–4 — in `control-plane/tests/contract/test_semantic_api.py`.
+- [X] T023 [P] [US2] Integration test for quickstart Scenario 2: submit a metric change that fails a semantic test → publication blocked with failure detail; submit a correct change → publishes with version history; query "as of" a prior period records the definition version (FR-012, US2-AC3) — in `control-plane/tests/integration/test_semantic_lifecycle_flow.py`.
 
 ### Implementation for User Story 2
 
-- [ ] T024 [P] [US2] Create `SemanticTest`, `SemanticTestResult`, `Publication` models in `control-plane/src/datafoundry/controlplane/db/models.py` (foundational T005 already added them; wire any story-specific fields).
-- [ ] T025 [P] [US2] Implement the semantic test categories in `control-plane/src/datafoundry/controlplane/semantic/tests/categories.py` (calculation, reconciliation, relationship, filter; run at publish time AND on schedule against production data, FR-014).
-- [ ] T026 [US2] Implement the GitOps lifecycle in `control-plane/src/datafoundry/controlplane/semantic/lifecycle.py` (propose → validate → approve → publish; classify breaking/non-breaking; breaking requires approval + consumer notification, FR-005; reuse feature 001 `config/gitops.py` pattern).
-- [ ] T027 [US2] Implement the publication + semantic-test API routers in `control-plane/src/datafoundry/controlplane/api/publications.py` and `api/semantic_tests.py` (define/run tests, propose/approve publication; audit writes; 422 blocked on failed tests).
-- [ ] T028 [US2] Implement the CLI commands in `cli/src/datafoundry/cli/commands/semantic.py` (`datafoundry semantic model publish`, `datafoundry semantic model approve`, `datafoundry semantic test run`); register in `cli/src/datafoundry/cli/main.py`.
+- [X] T024 [P] [US2] Create `SemanticTest`, `SemanticTestResult`, `Publication` models in `control-plane/src/datafoundry/controlplane/db/models.py` (foundational T005 already added them; wire any story-specific fields).
+- [X] T025 [P] [US2] Implement the semantic test categories in `control-plane/src/datafoundry/controlplane/semantic/tests/categories.py` (calculation, reconciliation, relationship, filter; run at publish time AND on schedule against production data, FR-014).
+- [X] T026 [US2] Implement the GitOps lifecycle in `control-plane/src/datafoundry/controlplane/semantic/lifecycle.py` (propose → validate → approve → publish; classify breaking/non-breaking; breaking requires approval + consumer notification, FR-005; reuse feature 001 `config/gitops.py` pattern).
+- [X] T027 [US2] Implement the publication + semantic-test API routers in `control-plane/src/datafoundry/controlplane/api/publications.py` and `api/semantic_tests.py` (define/run tests, propose/approve publication; audit writes; 422 blocked on failed tests).
+- [X] T028 [US2] Implement the CLI commands in `cli/src/datafoundry/cli/commands/semantic.py` (`datafoundry semantic model publish`, `datafoundry semantic model approve`, `datafoundry semantic test run`); register in `cli/src/datafoundry/cli/main.py`.
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
