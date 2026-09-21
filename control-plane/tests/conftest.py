@@ -219,6 +219,60 @@ def dataset(session_factory: sessionmaker[Session]):
 
 
 @pytest.fixture()
+def ui_caller(settings: Settings):
+    """Authenticated UI caller identity (feature 007)."""
+    from datafoundry.controlplane.api.auth import Caller
+
+    return Caller(identity=settings.dev_identity)
+
+
+@pytest.fixture()
+def saved_query(session_factory: sessionmaker[Session]):
+    """Create a minimal SavedQuery row (feature 007).
+
+    Returns a callable ``saved_query(name, owner)`` persisting a SavedQuery
+    and returning its id.
+    """
+
+    def _make(name: str = "revenue", owner: str = "dev@datafoundry.local"):
+        from datafoundry.controlplane.db.models import SavedQuery
+
+        with session_factory() as sess:
+            row = SavedQuery(
+                name=name,
+                owner_identity=owner,
+                sql_text="SELECT * FROM gold_orders",
+                dataset_bindings=["gold_orders"],
+                sharing="private",
+            )
+            sess.add(row)
+            sess.commit()
+            return row.id
+
+    return _make
+
+
+@pytest.fixture()
+def process_ui_action(app):
+    """Drive a UI-owned backend action synchronously (feature 007).
+
+    Returns a callable ``process_ui_action(fn, *args, **kwargs)`` executing
+    ``fn`` against the app's session and committing.
+    """
+
+    def _process(fn, *args, **kwargs):
+        session = app.state.sessionmaker()
+        try:
+            result = fn(session, *args, **kwargs)
+            session.commit()
+            return result
+        finally:
+            session.close()
+
+    return _process
+
+
+@pytest.fixture()
 def process_quality_run(app):
     """Drive the quality engine explicitly (tests use a no-op dispatcher).
 

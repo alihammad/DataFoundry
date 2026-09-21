@@ -782,3 +782,96 @@ class AuditService:
                 "successor_metric_id": str(successor_metric_id) if successor_metric_id else None,
             },
         )
+
+    # -- feature 007 UI actions (T009, FR-015/FR-022, SC-006) ----------------
+    #
+    # UI-owned entities are user-scoped; the audit record's ``platform_id`` is
+    # left unset and the entity id is carried in the payload. Every payload is
+    # secret-scanned by ``record`` before persist (FR-022, SC-006).
+
+    def ui_saved_query_created(
+        self, *, actor: str, query_id: uuid.UUID, name: str, sharing: str
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="ui.saved_query.created",
+            payload={"query_id": str(query_id), "name": name, "sharing": sharing},
+        )
+
+    def ui_saved_query_shared(
+        self,
+        *,
+        actor: str,
+        query_id: uuid.UUID,
+        shared_with_identity: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="ui.saved_query.shared",
+            payload={"query_id": str(query_id), "shared_with_identity": shared_with_identity},
+        )
+
+    def ui_notification_configured(
+        self,
+        *,
+        actor: str,
+        channel_id: uuid.UUID,
+        platform_id: uuid.UUID,
+        channel_type: str,
+        name: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="ui.notification.configured",
+            platform_id=platform_id,
+            payload={
+                "channel_id": str(channel_id),
+                "channel_type": channel_type,
+                "name": name,
+            },
+        )
+
+    def ui_role_created(
+        self, *, actor: str, role_id: uuid.UUID, name: str, scope: str
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="ui.role.created",
+            payload={"role_id": str(role_id), "name": name, "scope": scope},
+        )
+
+    def ui_role_assigned(
+        self,
+        *,
+        actor: str,
+        role_id: uuid.UUID,
+        assignment_id: uuid.UUID,
+        user_identity: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="ui.role.assigned",
+            payload={
+                "role_id": str(role_id),
+                "assignment_id": str(assignment_id),
+                "user_identity": user_identity,
+            },
+        )
+
+    def ui_approval_decided(
+        self,
+        *,
+        actor: str,
+        approval_id: str,
+        approval_type: str,
+        decision: str,
+    ) -> AuditRecord:
+        return self.record(
+            actor=actor,
+            action="ui.approval.decided",
+            payload={
+                "approval_id": approval_id,
+                "approval_type": approval_type,
+                "decision": decision,
+            },
+        )

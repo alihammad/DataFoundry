@@ -148,6 +148,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _register_routers(api_router)
     app.include_router(api_router)
 
+    # -- web UI static serving (feature 007, R-05) ----------------------------
+    from datafoundry.controlplane.api.ui import mount_ui
+
+    mount_ui(app, settings.ui_static_dir, settings.ui_base_path)
+
     return app
 
 
@@ -359,6 +364,36 @@ def _register_routers(api_router: APIRouter) -> None:
         from datafoundry.controlplane.api import consumers as consumers_api
 
         api_router.include_router(consumers_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import saved_queries as saved_queries_api
+
+        api_router.include_router(saved_queries_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import notifications as notifications_api
+
+        api_router.include_router(notifications_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import roles as roles_api
+
+        api_router.include_router(roles_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import approvals as approvals_api
+
+        api_router.include_router(approvals_api.router)
+    except ImportError:
+        pass
+    try:  # pragma: no cover
+        from datafoundry.controlplane.api import audit_log as audit_log_api
+
+        api_router.include_router(audit_log_api.router)
     except ImportError:
         pass
 

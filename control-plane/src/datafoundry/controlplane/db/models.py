@@ -1787,6 +1787,137 @@ class QueryResultVersion(Base):
     )
 
 
+# -- feature 007 web UI entities (data-model.md) -----------------------------
+#
+# UI-owned metadata only (spec Assumptions): saved queries, notification
+# channels, UI roles. All business data lives in the features 001-006 tables.
+
+
+class SharingMode(enum.StrEnum):
+    private = "private"
+    shared = "shared"
+
+
+class ChannelType(enum.StrEnum):
+    email = "email"
+    webhook = "webhook"
+    slack = "slack"
+
+
+class RoleScope(enum.StrEnum):
+    platform = "platform"
+    dataset = "dataset"
+    column = "column"
+
+
+class UIRole(Base):
+    """A named permission set scoping views and actions (FR-013/FR-014)."""
+
+    __tablename__ = "ui_roles"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    name: Mapped[str] = mapped_column(String(63), nullable=False, unique=True)
+    scope: Mapped[RoleScope] = mapped_column(Enum(RoleScope), nullable=False)
+    permissions: Mapped[list[Any]] = mapped_column(JSONVariant, nullable=False, default=list)
+    platform_scope: Mapped[list[Any] | None] = mapped_column(JSONVariant, nullable=True)
+    dataset_scope: Mapped[list[Any] | None] = mapped_column(JSONVariant, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    assignments: Mapped[list[UIRoleAssignment]] = relationship(
+        back_populates="role", cascade="all, delete-orphan"
+    )
+
+
+class UIRoleAssignment(Base):
+    """Binds a user to a role (FR-014)."""
+
+    __tablename__ = "ui_role_assignments"
+    __table_args__ = (UniqueConstraint("role_id", "user_identity", name="uq_role_assignment"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ui_roles.id", name="fk_assignment_role"), nullable=False
+    )
+    user_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    granted_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    role: Mapped[UIRole] = relationship(back_populates="assignments")
+
+
+class SavedQuery(Base):
+    """A user's stored SQL (spec Key Entity, FR-010)."""
+
+    __tablename__ = "saved_queries"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    name: Mapped[str] = mapped_column(String(127), nullable=False)
+    owner_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    sql_text: Mapped[str] = mapped_column(Text, nullable=False)
+    dataset_bindings: Mapped[list[Any]] = mapped_column(JSONVariant, nullable=False, default=list)
+    sharing: Mapped[SharingMode] = mapped_column(Enum(SharingMode), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    shares: Mapped[list[SavedQueryShare]] = relationship(
+        back_populates="query", cascade="all, delete-orphan"
+    )
+
+
+class SavedQueryShare(Base):
+    """A share grant on a saved query (US4-AC4)."""
+
+    __tablename__ = "saved_query_shares"
+    __table_args__ = (UniqueConstraint("query_id", "shared_with_identity", name="uq_query_share"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    query_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("saved_queries.id", name="fk_share_query"), nullable=False
+    )
+    shared_with_identity: Mapped[str] = mapped_column(String(256), nullable=False)
+    shared_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    shared_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    query: Mapped[SavedQuery] = relationship(back_populates="shares")
+
+
+class NotificationChannel(Base):
+    """Per-platform alert routing configuration (FR-014)."""
+
+    __tablename__ = "notification_channels"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
+    platform_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("platforms.id", name="fk_channel_platform"), nullable=False
+    )
+    channel_type: Mapped[ChannelType] = mapped_column(Enum(ChannelType), nullable=False)
+    name: Mapped[str] = mapped_column(String(63), nullable=False)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False, default=dict)
+    event_types: Mapped[list[Any]] = mapped_column(JSONVariant, nullable=False, default=list)
+    enabled: Mapped[bool] = mapped_column(nullable=False, default=True)
+    created_by: Mapped[str] = mapped_column(String(256), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
 __all__ = [
     "AccessDecision",
     "AccessOutcome",
@@ -1798,6 +1929,7 @@ __all__ = [
     "CatalogMetadata",
     "CertificationState",
     "ChangeClassification",
+    "ChannelType",
     "Classification",
     "ConfigSource",
     "ConnectionState",
@@ -1834,6 +1966,7 @@ __all__ = [
     "LineageLink",
     "Measure",
     "Metric",
+    "NotificationChannel",
     "OverallStatus",
     "OverrideStatus",
     "PipelineState",
@@ -1854,10 +1987,13 @@ __all__ = [
     "QuarantineRecord",
     "QueryResultVersion",
     "Relationship",
+    "RoleScope",
     "RunOutcome",
     "RunStatus",
     "RunTrigger",
     "RunType",
+    "SavedQuery",
+    "SavedQueryShare",
     "SecurityAuditRecord",
     "SecurityLevel",
     "SemanticModel",
@@ -1866,6 +2002,7 @@ __all__ = [
     "SemanticTestResult",
     "SemanticTestStatus",
     "SemanticTestTrigger",
+    "SharingMode",
     "SourceContract",
     "SourceType",
     "StepStatus",
@@ -1876,6 +2013,8 @@ __all__ = [
     "TestSeverity",
     "TokenReference",
     "Transformation",
+    "UIRole",
+    "UIRoleAssignment",
     "VerificationResult",
     "ViolationClassification",
 ]

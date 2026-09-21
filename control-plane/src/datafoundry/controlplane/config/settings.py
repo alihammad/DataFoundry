@@ -80,6 +80,15 @@ class Settings:
     # driven explicitly); enabled in production.
     ingestion_scheduler_enabled: bool = True
 
+    # Web UI static serving (feature 007, R-05). The built SPA is mounted at
+    # ui_base_path; non-API routes fall back to index.html.
+    ui_static_dir: Path = field(
+        default_factory=lambda: Path(
+            os.environ.get("DF_UI_STATIC_DIR", str(Path.cwd() / "ui" / "dist"))
+        )
+    )
+    ui_base_path: str = "/"
+
     @classmethod
     def from_env(cls) -> Settings:
         env = os.environ
@@ -111,6 +120,8 @@ class Settings:
             service_version=env.get("DF_SERVICE_VERSION", "0.1.0"),
             api_prefix=env.get("DF_API_PREFIX", "/api/v1"),
             ingestion_scheduler_enabled=_env_bool("DF_INGESTION_SCHEDULER_ENABLED", True),
+            ui_static_dir=Path(env.get("DF_UI_STATIC_DIR", str(Path.cwd() / "ui" / "dist"))),
+            ui_base_path=env.get("DF_UI_BASE_PATH", "/"),
         )
 
     @property

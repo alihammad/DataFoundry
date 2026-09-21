@@ -64,6 +64,21 @@ services:
       retries: 20
       start_period: 60s
 
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ui
+    container_name: datafoundry-ui
+    environment:
+      DF_DATABASE_URL: postgresql+psycopg://datafoundry:datafoundry-dev-only@postgres:5432/datafoundry
+      DF_AUTH_MODE: dev
+      DF_UI_STATIC_DIR: /app/ui/dist
+    ports:
+      - "8080:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   localstack-data:

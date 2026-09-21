@@ -55,3 +55,6 @@ Thumbs.db
 
 # --- Node (future frontend, feature 007) ---
 node_modules/
+ui/dist/
+ui/coverage/
+*.tsbuildinfo
